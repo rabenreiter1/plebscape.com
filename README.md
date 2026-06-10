@@ -35,16 +35,15 @@ Create the database tables with:
 npm.cmd run db:push
 ```
 
-## Game Rules
+## How It Works
 
-- Each level has exactly two nouns.
-- The player cannot see vote totals before choosing.
-- The player's vote is counted before judgment.
-- The chosen noun must be below 50% after the vote.
-- 50/50 is failure.
-- A level is passable only when one noun is already behind by at least two votes.
-- New levels are impossible because the first vote makes the chosen noun 100%.
-- One previous vote, tied votes, and one-vote differences are impossible for the same strict-minority reason.
+1. You are shown two buttons.
+2. Each button contains one random noun. Example: tree / noise.
+3. You choose one button.
+4. Your vote is added to the global vote count for that level.
+5. The game reveals the percentages.
+6. You survive only if your chosen button has less than 50%.
+7. If your chosen button has 50% or more, you fail.
 
 ## Deployment
 

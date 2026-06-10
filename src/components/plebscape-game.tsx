@@ -333,7 +333,7 @@ function RulesModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="rules-header">
-          <h2 id="rules-title">Rules</h2>
+          <h2 id="rules-title">How it works</h2>
           <button
             ref={closeButtonRef}
             className="close-button"
@@ -344,20 +344,15 @@ function RulesModal({
             x
           </button>
         </div>
-        <ul className="rules-list">
-          <li>Each level has two random nouns.</li>
-          <li>Choose one noun.</li>
-          <li>You cannot see previous votes before choosing.</li>
-          <li>Your vote is counted immediately.</li>
-          <li>You survive only if your chosen noun is still below 50% after your vote.</li>
-          <li>50/50 is failure.</li>
-          <li>If your chosen noun has 50% or more, you fail.</li>
-          <li>A level is passable only when one noun is already behind by at least two votes before you choose it.</li>
-          <li>New levels are impossible because your first vote makes your chosen noun 100%.</li>
-          <li>Levels with one previous vote are impossible: choosing the voted noun makes it 100%, choosing the other makes 50/50.</li>
-          <li>Tied levels are impossible because either choice becomes the majority after your vote.</li>
-          <li>One-vote-difference levels are impossible because choosing the minority creates 50/50, and choosing the majority keeps it majority.</li>
-        </ul>
+        <ol className="rules-list">
+          <li>You are shown two buttons.</li>
+          <li>Each button contains one random noun. Example: tree / noise.</li>
+          <li>You choose one button.</li>
+          <li>Your vote is added to the global vote count for that level.</li>
+          <li>The game reveals the percentages.</li>
+          <li>You survive only if your chosen button has less than 50%.</li>
+          <li>If your chosen button has 50% or more, you fail.</li>
+        </ol>
       </div>
     </div>
   );

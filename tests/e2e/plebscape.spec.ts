@@ -40,13 +40,13 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("opens and closes the precise rules modal by keyboard", async ({ page }) => {
+test("opens and closes the how it works modal by keyboard", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open game rules" }).click();
-  await expect(page.getByRole("dialog", { name: "Rules" })).toBeVisible();
-  await expect(page.getByText("New levels are impossible because your first vote makes your chosen noun 100%.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "How it works" })).toBeVisible();
+  await expect(page.getByText("Each button contains one random noun. Example: tree / noise.")).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Rules" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "How it works" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Open game rules" })).toBeFocused();
 });
 
