@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getDb } from "@/db/client";
 import { levels, votes } from "@/db/schema";
+import { recordDevVote, shouldUseDevStore } from "@/lib/dev-store";
 import { calculateVoteOutcome, isSide } from "@/lib/game";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +23,23 @@ type LockedLevel = {
 };
 
 export async function POST(request: Request) {
-  const db = getDb();
   const body = voteSchema.safeParse(await request.json().catch(() => ({})));
 
   if (!body.success || !isSide(body.data.chosenSide)) {
     return NextResponse.json({ error: "Invalid vote." }, { status: 400 });
   }
 
+  if (shouldUseDevStore()) {
+    const result = recordDevVote(body.data.levelId, body.data.chosenSide);
+
+    if (!result) {
+      return NextResponse.json({ error: "Level not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ result });
+  }
+
+  const db = getDb();
   const result = await db.transaction(async (tx) => {
     const lockedLevels = (await tx.execute(sql`
       select id, noun_a, noun_b, votes_a, votes_b

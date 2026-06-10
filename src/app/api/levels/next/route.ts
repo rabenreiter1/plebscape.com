@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getDb } from "@/db/client";
 import { levels } from "@/db/schema";
+import { getNextDevLevel, shouldUseDevStore } from "@/lib/dev-store";
 import { generateNounPair } from "@/lib/nouns";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,6 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const db = getDb();
   const body = requestSchema.safeParse(await request.json().catch(() => ({})));
 
   if (!body.success) {
@@ -21,6 +21,12 @@ export async function POST(request: Request) {
   }
 
   const seenLevelIds = body.data.seenLevelIds;
+
+  if (shouldUseDevStore()) {
+    return NextResponse.json(getNextDevLevel(seenLevelIds));
+  }
+
+  const db = getDb();
   const filters = [gt(sql`${levels.votesA} + ${levels.votesB}`, 0)];
 
   if (seenLevelIds.length > 0) {
