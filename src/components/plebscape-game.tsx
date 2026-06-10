@@ -10,6 +10,7 @@ type DisplayChoice = {
   noun: string;
 };
 
+const slogan = "There is only one way to escape the pleb.";
 const revealDelayMs = 1400;
 
 export function PlebscapeGame() {
@@ -130,7 +131,10 @@ export function PlebscapeGame() {
   return (
     <main className="game-shell">
       <header className="game-header">
-        <h1>PLEBSCAPE.COM</h1>
+        <div className="brand-lockup">
+          <h1>PLEBSCAPE.COM</h1>
+          <p>{slogan}</p>
+        </div>
         <button
           ref={infoButtonRef}
           className="info-button"
@@ -406,8 +410,9 @@ async function renderFailureImage(result: RevealedResult, runLevel: number): Pro
   drawText(context, `LEVEL ${runLevel}`, 540, 455, 64, "800");
   drawText(context, result.nounA, 540, 635, 68, "700");
   drawText(context, displayPercent(result.percentA), 540, 710, 54, "500");
-  drawText(context, result.nounB, 540, 850, 68, "700");
-  drawText(context, displayPercent(result.percentB), 540, 925, 54, "500");
+  drawText(context, result.nounB, 540, 820, 68, "700");
+  drawText(context, displayPercent(result.percentB), 540, 895, 54, "500");
+  drawText(context, slogan, 540, 1010, 32, "700");
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

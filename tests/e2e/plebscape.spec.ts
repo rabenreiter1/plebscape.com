@@ -42,6 +42,7 @@ test.beforeEach(async ({ page }) => {
 
 test("opens and closes the how it works modal by keyboard", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText("There is only one way to escape the pleb.")).toBeVisible();
   await page.getByRole("button", { name: "Open game rules" }).click();
   await expect(page.getByRole("dialog", { name: "How it works" })).toBeVisible();
   await expect(page.getByText("Each button contains one random noun. Example: tree / noise.")).toBeVisible();

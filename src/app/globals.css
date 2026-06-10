@@ -52,6 +52,12 @@ button:focus-visible,
   margin: 0 auto;
 }
 
+.brand-lockup {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 h1,
 h2,
 p {
@@ -61,6 +67,14 @@ p {
 h1 {
   font-size: clamp(1.1rem, 1rem + 1vw, 1.65rem);
   font-weight: 900;
+}
+
+.brand-lockup p {
+  color: var(--muted);
+  font-size: clamp(0.78rem, 0.72rem + 0.3vw, 0.95rem);
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: 34rem;
 }
 
 .info-button,
