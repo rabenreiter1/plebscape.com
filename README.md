@@ -45,13 +45,49 @@ npm.cmd run db:push
 6. You survive only if your chosen button has less than 50%.
 7. If your chosen button has 50% or more, you fail.
 
-## Deployment
+## Hostinger Deployment
 
-1. Create a Vercel project from this repo.
-2. Add a Vercel Postgres database or provide `DATABASE_URL`.
-3. Add `OPENAI_API_KEY` and optionally `OPENAI_MODEL`.
-4. Run `npm.cmd run db:push` against production once.
-5. Point `PLEBSCAPE.COM` at the Vercel deployment.
+Deploy PLEBSCAPE as a Node/Next app, not as a static export. The frontend can render
+without the server routes, but the game cannot load levels or record votes unless
+`/api/levels/next` and `/api/votes` run on the Node server.
+
+Use these commands in Hostinger:
+
+```text
+Build command: npm ci && npm run build
+Start command: npm run start
+```
+
+Configure these production environment variables in Hostinger:
+
+```text
+DATABASE_URL=...
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+`OPENAI_MODEL` is optional. `DATABASE_URL` and `OPENAI_API_KEY` are required for
+an empty production database because the first live request must generate and
+store a new noun pair.
+
+Create the production tables once with the production `DATABASE_URL`:
+
+```powershell
+npm.cmd run db:push
+```
+
+After deployment, verify the server routes:
+
+```bash
+curl -i https://YOUR_DOMAIN/api/health
+curl -i -X POST https://YOUR_DOMAIN/api/levels/next \
+  -H "Content-Type: application/json" \
+  -d '{"seenLevelIds":[]}'
+```
+
+`/api/health` returns non-secret deployment checks for env vars, database
+connectivity, and table reachability. If `/api/levels/next` returns 500, check
+Hostinger logs for the precise server-side error.
 
 ## GitHub Flow
 
