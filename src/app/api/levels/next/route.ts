@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { levels } from "@/db/schema";
 import { getNextDevLevel, shouldUseDevStore } from "@/lib/dev-store";
-import { generateNounPair } from "@/lib/nouns";
+import { generateNounPairWithFallback } from "@/lib/nouns";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ level: eligible, generated: false });
     }
 
-    const pair = await generateNounPair();
+    const pair = await generateNounPairWithFallback();
     const [created] = await db
       .insert(levels)
       .values({

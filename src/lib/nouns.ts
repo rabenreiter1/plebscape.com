@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
+import { logApiError } from "./server-errors";
+
 const nounPairSchema = z.object({
   nounA: z.string(),
   nounB: z.string()
@@ -25,6 +27,21 @@ const bannedWords = new Set([
 ]);
 
 const nounPattern = /^[a-z]{3,16}$/;
+
+const fallbackPairs = [
+  ["tree", "noise"],
+  ["window", "copper"],
+  ["dust", "animal"],
+  ["paper", "moon"],
+  ["hammer", "garden"],
+  ["mirror", "salt"],
+  ["engine", "velvet"],
+  ["river", "plastic"],
+  ["cloud", "knife"],
+  ["ladder", "fog"],
+  ["bottle", "canyon"],
+  ["fabric", "signal"]
+] as const;
 
 export type NounPair = {
   nounA: string;
@@ -98,4 +115,14 @@ export async function generateNounPair(): Promise<NounPair> {
 
   const parsed = nounPairSchema.parse(JSON.parse(response.output_text));
   return validateNounPair(parsed);
+}
+
+export async function generateNounPairWithFallback(): Promise<NounPair> {
+  try {
+    return await generateNounPair();
+  } catch (error) {
+    logApiError("noun-generation", error);
+    const pair = fallbackPairs[Math.floor(Math.random() * fallbackPairs.length)];
+    return validateNounPair({ nounA: pair[0], nounB: pair[1] });
+  }
 }
