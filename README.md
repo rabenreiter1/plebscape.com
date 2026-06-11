@@ -58,6 +58,9 @@ Build command: npm ci && npm run build
 Start command: npm run start
 ```
 
+The start script binds Next to `0.0.0.0` and uses Hostinger's `PORT` environment
+variable when it is provided, with `3000` as the local fallback.
+
 Configure these production environment variables in Hostinger:
 
 ```text
