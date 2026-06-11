@@ -606,8 +606,7 @@ function RulesModal({
           </button>
         </div>
         <ol className="rules-list">
-          <li>You are shown two buttons.</li>
-          <li>Each button contains one random noun. Example: tree / noise.</li>
+          <li>You are shown two buttons with one word each.</li>
           <li>You choose one button.</li>
           <li>Your vote is added to the global vote count for that level.</li>
           <li>The game reveals the percentages.</li>

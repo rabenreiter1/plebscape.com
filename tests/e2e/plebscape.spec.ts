@@ -243,7 +243,8 @@ test("opens and closes the how it works modal by keyboard", async ({ page }) => 
   await page.getByRole("button", { name: "Open game rules" }).click();
   const dialog = page.getByRole("dialog", { name: "How it works" });
   await expect(dialog).toBeVisible();
-  await expect(page.getByText("Each button contains one random noun. Example: tree / noise.")).toBeVisible();
+  await expect(page.getByText("You are shown two buttons with one word each.")).toBeVisible();
+  await expect(page.getByText("Each button contains one random noun. Example: tree / noise.")).toHaveCount(0);
   const modalOverflow = await dialog.evaluate((element) => ({
     clientHeight: element.clientHeight,
     clientWidth: element.clientWidth,

@@ -36,13 +36,12 @@ npm.cmd run db:backfill-nouns
 
 ## How It Works
 
-1. You are shown two buttons.
-2. Each button contains one random noun. Example: tree / noise.
-3. You choose one button.
-4. Your vote is added to the global vote count for that level.
-5. The game reveals the percentages.
-6. You survive only if your chosen button has less than 50%.
-7. If your chosen button has 50% or more, you fail.
+1. You are shown two buttons with one word each.
+2. You choose one button.
+3. Your vote is added to the global vote count for that level.
+4. The game reveals the percentages.
+5. You survive only if your chosen button has less than 50%.
+6. If your chosen button has 50% or more, you fail.
 
 ## Hostinger Deployment
 
