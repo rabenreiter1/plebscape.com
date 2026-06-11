@@ -392,7 +392,14 @@ test("draws share-only score from exact post-vote run percentages", async ({ pag
       y: number,
       maxWidth?: number
     ) {
-      window.__plebscapeFillTextCalls.push(String(text));
+      window.__plebscapeFillTextCalls.push({
+        font: this.font,
+        text: String(text),
+        textAlign: this.textAlign,
+        width: this.measureText(String(text)).width,
+        x,
+        y
+      });
       return originalFillText.call(this, text, x, y, maxWidth as number);
     };
 
@@ -503,15 +510,39 @@ test("draws share-only score from exact post-vote run percentages", async ({ pag
   await page.getByRole("button", { name: "SHARE" }).click();
 
   await expect
-    .poll(async () => page.evaluate(() => window.__plebscapeFillTextCalls))
+    .poll(async () => page.evaluate(() => window.__plebscapeFillTextCalls.map((call) => call.text)))
     .toContain("SCORE 261");
   const fillTextCalls = await page.evaluate(() => window.__plebscapeFillTextCalls);
-  expect(fillTextCalls).toContain("LEVEL 3");
-  expect(fillTextCalls).toContain("AVERAGE CHOICE: 39%");
-  expect(fillTextCalls).toContain("65%");
-  expect(fillTextCalls).toContain("35%");
-  expect(fillTextCalls).toContain("bagel");
-  expect(fillTextCalls).toContain("jigsaw");
+  const fillTextLabels = fillTextCalls.map((call) => call.text);
+  expect(fillTextLabels).toContain("LEVEL 3");
+  expect(fillTextLabels).toContain("AVERAGE CHOICE: 39%");
+  expect(fillTextLabels).toContain("65%");
+  expect(fillTextLabels).toContain("35%");
+  expect(fillTextLabels).toContain("bagel");
+  expect(fillTextLabels).toContain("jigsaw");
+
+  const levelCall = fillTextCalls.find((call) => call.text === "LEVEL 3");
+  const scoreCall = fillTextCalls.find((call) => call.text === "SCORE 261");
+  const averageCall = fillTextCalls.find((call) => call.text === "AVERAGE CHOICE: 39%");
+  const domainCall = fillTextCalls.find((call) => call.text === "PLEBSCAPE.COM");
+  const sloganCall = fillTextCalls.find((call) => call.text === "There is only one way to escape the pleb.");
+
+  expect(levelCall).toBeDefined();
+  expect(scoreCall).toBeDefined();
+  expect(averageCall).toBeDefined();
+  expect(domainCall).toBeDefined();
+  expect(sloganCall).toBeDefined();
+
+  const textBlockWidth = Math.max(levelCall!.width, scoreCall!.width);
+  const headerGroupCenter = levelCall!.x - 320 - 36 + (320 + 36 + textBlockWidth) / 2;
+
+  expect(levelCall!.textAlign).toBe("left");
+  expect(scoreCall!.textAlign).toBe("left");
+  expect(levelCall!.x).toBe(scoreCall!.x);
+  expect(Math.abs(headerGroupCenter - 540)).toBeLessThanOrEqual(1);
+  expect(averageCall!.x).toBe(540);
+  expect(domainCall!.x).toBe(540);
+  expect(sloganCall!.x).toBe(540);
   await expect.poll(async () => page.evaluate(() => window.__plebscapeDownloadClicked)).toBe(true);
 });
 
