@@ -161,7 +161,8 @@ h1 {
 }
 
 .result-panel h2,
-.failure-panel h2 {
+.failure-panel h2,
+.stack h2 {
   font-size: clamp(2.25rem, 1.5rem + 5vw, 5.5rem);
   font-weight: 900;
   line-height: 0.95;

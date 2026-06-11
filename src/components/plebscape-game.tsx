@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { displayPercent, type LevelPublic, type RevealedResult, type Side } from "@/lib/game";
 
-type GameState = "loading" | "choosing" | "revealed" | "failed" | "error";
+type GameState = "loading" | "choosing" | "revealed" | "failed" | "exhausted" | "error";
 type DisplayChoice = {
   side: Side;
   noun: string;
@@ -41,7 +41,19 @@ export function PlebscapeGame() {
           throw new Error("Could not load the next level.");
         }
 
-        const data = (await response.json()) as { level: LevelPublic };
+        const data = (await response.json()) as { exhausted?: boolean; level?: LevelPublic };
+
+        if (data.exhausted) {
+          setLevel(null);
+          setChoices([]);
+          setState("exhausted");
+          return;
+        }
+
+        if (!data.level) {
+          throw new Error("Could not load the next level.");
+        }
+
         const nextLevel = data.level;
         const orderedChoices: DisplayChoice[] =
           Math.random() > 0.5
@@ -179,6 +191,8 @@ export function PlebscapeGame() {
           />
         )}
 
+        {state === "exhausted" && <ExhaustedPanel onRestart={restart} />}
+
         {state === "error" && (
           <div className="stack">
             <p className="status-text">{error}</p>
@@ -191,6 +205,18 @@ export function PlebscapeGame() {
 
       {rulesOpen && <RulesModal openerRef={infoButtonRef} onClose={() => setRulesOpen(false)} />}
     </main>
+  );
+}
+
+function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
+  return (
+    <div className="stack">
+      <h2>THE WORLD IS EMPTY</h2>
+      <p className="status-text">Every noun has already been used.</p>
+      <button className="text-button" type="button" onClick={onRestart}>
+        START AGAIN
+      </button>
+    </div>
   );
 }
 

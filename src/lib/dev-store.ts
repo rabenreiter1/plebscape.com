@@ -1,22 +1,10 @@
 import { calculateVoteOutcome, type LevelPublic, type RevealedResult, type Side } from "./game";
+import { nounBank } from "./noun-bank";
 
 type DevLevel = LevelPublic & {
   votesA: number;
   votesB: number;
 };
-
-const nounPairs = [
-  ["tree", "noise"],
-  ["window", "copper"],
-  ["dust", "animal"],
-  ["paper", "moon"],
-  ["hammer", "garden"],
-  ["mirror", "salt"],
-  ["engine", "velvet"],
-  ["river", "plastic"],
-  ["cloud", "knife"],
-  ["ladder", "fog"]
-] as const;
 
 const store = globalThis as typeof globalThis & {
   plebscapeDevLevels?: DevLevel[];
@@ -36,7 +24,9 @@ export function shouldUseDevStore() {
   return process.env.NODE_ENV !== "production" && !process.env.DATABASE_URL;
 }
 
-export function getNextDevLevel(seenLevelIds: string[]): { level: LevelPublic; generated: boolean } {
+export function getNextDevLevel(
+  seenLevelIds: string[]
+): { level: LevelPublic; generated: boolean } | { exhausted: true } {
   const existing = devLevels();
   const eligible = existing.filter(
     (level) => level.votesA + level.votesB > 0 && !seenLevelIds.includes(level.id)
@@ -48,7 +38,13 @@ export function getNextDevLevel(seenLevelIds: string[]): { level: LevelPublic; g
   }
 
   const index = store.plebscapeDevIndex ?? 0;
-  const pair = nounPairs[index % nounPairs.length];
+  const nounIndex = index * 2;
+
+  if (nounIndex + 1 >= nounBank.length) {
+    return { exhausted: true };
+  }
+
+  const pair = [nounBank[nounIndex], nounBank[nounIndex + 1]] as const;
   store.plebscapeDevIndex = index + 1;
 
   const level: DevLevel = {

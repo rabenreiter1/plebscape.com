@@ -43,5 +43,19 @@ export const votes = pgTable(
   })
 );
 
+export const usedNouns = pgTable(
+  "used_nouns",
+  {
+    noun: text("noun").primaryKey(),
+    levelId: uuid("level_id")
+      .notNull()
+      .references(() => levels.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    levelIndex: index("used_nouns_level_id_idx").on(table.levelId)
+  })
+);
+
 export type LevelRow = typeof levels.$inferSelect;
 export type VoteRow = typeof votes.$inferSelect;

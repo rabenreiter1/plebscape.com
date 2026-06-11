@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/db/client";
-import { levels, votes } from "@/db/schema";
+import { levels, usedNouns, votes } from "@/db/schema";
+import { validateNounBank } from "@/lib/nouns";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -24,16 +25,18 @@ type DatabaseUrlInfo = {
 
 export async function GET() {
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
+  const nounBank = validateNounBank();
   const checks: Record<string, Check> = {
     databaseUrl: { ok: hasDatabaseUrl },
-    openAiKey: { ok: hasOpenAiKey }
+    nounBank
   };
 
   if (!hasDatabaseUrl) {
     checks.database = { ok: false, message: "DATABASE_URL is not configured." };
     checks.levelsTable = { ok: false, message: "Database check skipped." };
     checks.votesTable = { ok: false, message: "Database check skipped." };
+    checks.usedNounsTable = { ok: false, message: "Database check skipped." };
+    checks.usedNounsBackfill = { ok: false, message: "Database check skipped." };
   } else {
     try {
       const db = getDb();
@@ -45,6 +48,28 @@ export async function GET() {
 
       await db.select({ id: votes.id }).from(votes).limit(1);
       checks.votesTable = { ok: true };
+
+      await db.select({ noun: usedNouns.noun }).from(usedNouns).limit(1);
+      checks.usedNounsTable = { ok: true };
+
+      const missingRows = (await db.execute(sql`
+        select count(*)::int as count
+        from (
+          select noun_a as noun from levels
+          union
+          select noun_b as noun from levels
+        ) level_nouns
+        left join used_nouns on used_nouns.noun = level_nouns.noun
+        where used_nouns.noun is null
+      `)) as unknown as Array<{ count: number | string }>;
+      const missingCount = Number(missingRows[0]?.count ?? 0);
+      checks.usedNounsBackfill =
+        missingCount === 0
+          ? { ok: true }
+          : {
+              ok: false,
+              message: `${missingCount} existing level nouns are not reserved.`
+            };
     } catch (error) {
       logApiError("api/health", error);
       checks.database = checks.database ?? {
@@ -58,6 +83,14 @@ export async function GET() {
       checks.votesTable = checks.votesTable ?? {
         ok: false,
         message: "Votes table check failed."
+      };
+      checks.usedNounsTable = checks.usedNounsTable ?? {
+        ok: false,
+        message: "Used nouns table check failed."
+      };
+      checks.usedNounsBackfill = checks.usedNounsBackfill ?? {
+        ok: false,
+        message: "Used nouns backfill check failed."
       };
     }
   }

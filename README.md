@@ -10,7 +10,7 @@ The player sees two random nouns, chooses one, and survives only if the chosen n
 - Vercel deployment target
 - Vercel Postgres or any Postgres database
 - Drizzle ORM
-- OpenAI Responses API for noun-pair generation
+- Checked-in finite local noun bank
 - Vitest and Playwright
 
 ## Local Setup
@@ -25,14 +25,13 @@ Fill `.env.local` with:
 
 ```text
 DATABASE_URL=...
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o-mini
 ```
 
 Create the database tables with:
 
 ```powershell
 npm.cmd run db:push
+npm.cmd run db:backfill-nouns
 ```
 
 ## How It Works
@@ -65,18 +64,17 @@ Configure these production environment variables in Hostinger:
 
 ```text
 DATABASE_URL=...
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o-mini
 ```
 
-`OPENAI_MODEL` is optional. `DATABASE_URL` and `OPENAI_API_KEY` are required for
-an empty production database because the first live request must generate and
-store a new noun pair.
+No OpenAI key or paid LLM provider is required. New levels are created from the
+checked-in 10,000 noun bank.
 
-Create the production tables once with the production `DATABASE_URL`:
+Create/update the production tables once with the production `DATABASE_URL`, then
+reserve nouns from any existing production levels:
 
 ```powershell
 npm.cmd run db:push
+npm.cmd run db:backfill-nouns
 ```
 
 After deployment, verify the server routes:

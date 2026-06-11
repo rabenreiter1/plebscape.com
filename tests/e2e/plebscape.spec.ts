@@ -68,6 +68,21 @@ test("shows failure actions", async ({ page }) => {
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
 });
 
+test("shows the exhausted world state", async ({ page }) => {
+  await page.unroute("**/api/levels/next");
+  await page.route("**/api/levels/next", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ exhausted: true })
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "THE WORLD IS EMPTY" })).toBeVisible();
+  await expect(page.getByText("Every noun has already been used.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
+});
+
 test("has no critical accessibility violations at desktop and mobile widths", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");

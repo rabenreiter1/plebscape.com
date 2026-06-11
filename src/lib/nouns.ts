@@ -1,12 +1,4 @@
-import OpenAI from "openai";
-import { z } from "zod";
-
-import { logApiError } from "./server-errors";
-
-const nounPairSchema = z.object({
-  nounA: z.string(),
-  nounB: z.string()
-});
+import { nounBank, nounBankSize } from "./noun-bank";
 
 const bannedWords = new Set([
   "beauty",
@@ -28,101 +20,86 @@ const bannedWords = new Set([
 
 const nounPattern = /^[a-z]{3,16}$/;
 
-const fallbackPairs = [
-  ["tree", "noise"],
-  ["window", "copper"],
-  ["dust", "animal"],
-  ["paper", "moon"],
-  ["hammer", "garden"],
-  ["mirror", "salt"],
-  ["engine", "velvet"],
-  ["river", "plastic"],
-  ["cloud", "knife"],
-  ["ladder", "fog"],
-  ["bottle", "canyon"],
-  ["fabric", "signal"]
-] as const;
-
 export type NounPair = {
   nounA: string;
   nounB: string;
 };
 
-export function validateNounPair(pair: NounPair): NounPair {
-  const nounA = pair.nounA.trim().toLowerCase();
-  const nounB = pair.nounB.trim().toLowerCase();
+export function validateNoun(value: string): string {
+  const noun = value.trim().toLowerCase();
 
-  if (!nounPattern.test(nounA) || !nounPattern.test(nounB)) {
+  if (!nounPattern.test(noun)) {
     throw new Error("Nouns must be lowercase single words with 3-16 letters.");
   }
+
+  if (bannedWords.has(noun)) {
+    throw new Error("Noun contains a loaded word.");
+  }
+
+  return noun;
+}
+
+export function validateNounPair(pair: NounPair): NounPair {
+  const nounA = validateNoun(pair.nounA);
+  const nounB = validateNoun(pair.nounB);
 
   if (nounA === nounB) {
     throw new Error("Noun pair must not contain duplicates.");
   }
 
-  if (bannedWords.has(nounA) || bannedWords.has(nounB)) {
-    throw new Error("Noun pair contains a loaded word.");
-  }
-
   return { nounA, nounB };
 }
 
-export async function generateNounPair(): Promise<NounPair> {
-  const apiKey = process.env.OPENAI_API_KEY;
+export function selectUnusedNounPair({
+  usedNouns,
+  bank = nounBank,
+  random = Math.random
+}: {
+  usedNouns: Iterable<string>;
+  bank?: readonly string[];
+  random?: () => number;
+}): NounPair | null {
+  const used = new Set(Array.from(usedNouns, (noun) => noun.trim().toLowerCase()));
+  const unused = bank.filter((noun) => !used.has(noun));
 
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is required to generate new levels.");
+  if (unused.length < 2) {
+    return null;
   }
 
-  const client = new OpenAI({ apiKey });
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-    input: [
-      {
-        role: "system",
-        content:
-          "Generate two random, concrete, lowercase English nouns for a minimalist game. Avoid moral, political, ideological, religious, sexual, violent, insulting, branded, or emotionally loaded words. Return only schema-valid JSON."
-      },
-      {
-        role: "user",
-        content:
-          "Create one arbitrary noun pair. The words should feel random, slightly uncanny, and not like an obvious meaningful choice."
-      }
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "plebscape_noun_pair",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["nounA", "nounB"],
-          properties: {
-            nounA: {
-              type: "string",
-              description: "A lowercase single-word English noun."
-            },
-            nounB: {
-              type: "string",
-              description: "A different lowercase single-word English noun."
-            }
-          }
-        }
-      }
-    }
-  });
+  const firstIndex = Math.floor(random() * unused.length);
+  const first = unused[firstIndex];
+  const secondPool = unused.filter((_, index) => index !== firstIndex);
+  const second = secondPool[Math.floor(random() * secondPool.length)];
 
-  const parsed = nounPairSchema.parse(JSON.parse(response.output_text));
-  return validateNounPair(parsed);
+  return validateNounPair({ nounA: first, nounB: second });
 }
 
-export async function generateNounPairWithFallback(): Promise<NounPair> {
+export function validateNounBank(bank: readonly string[] = nounBank): {
+  ok: boolean;
+  message?: string;
+} {
   try {
-    return await generateNounPair();
+    if (bank.length !== nounBankSize) {
+      return { ok: false, message: `Expected ${nounBankSize} nouns, found ${bank.length}.` };
+    }
+
+    const seen = new Set<string>();
+
+    for (const noun of bank) {
+      const normalized = validateNoun(noun);
+
+      if (seen.has(normalized)) {
+        return { ok: false, message: `Duplicate noun found: ${normalized}.` };
+      }
+
+      seen.add(normalized);
+    }
+
+    return { ok: true };
   } catch (error) {
-    logApiError("noun-generation", error);
-    const pair = fallbackPairs[Math.floor(Math.random() * fallbackPairs.length)];
-    return validateNounPair({ nounA: pair[0], nounB: pair[1] });
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Noun bank validation failed."
+    };
   }
 }

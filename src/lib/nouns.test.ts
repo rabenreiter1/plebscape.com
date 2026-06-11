@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { validateNounPair } from "./nouns";
+import { nounBank, nounBankSize } from "./noun-bank";
+import { selectUnusedNounPair, validateNounBank, validateNounPair } from "./nouns";
 
 describe("validateNounPair", () => {
   it("accepts clean arbitrary nouns", () => {
@@ -30,5 +31,51 @@ describe("validateNounPair", () => {
 
   it("rejects loaded words", () => {
     expect(() => validateNounPair({ nounA: "freedom", nounB: "noise" })).toThrow(/loaded/);
+  });
+});
+
+describe("nounBank", () => {
+  it("contains exactly 10,000 valid unique nouns", () => {
+    expect(nounBank).toHaveLength(nounBankSize);
+    expect(new Set(nounBank).size).toBe(nounBankSize);
+    expect(validateNounBank()).toEqual({ ok: true });
+  });
+
+  it("does not include banned loaded words", () => {
+    expect(nounBank).not.toContain("freedom");
+    expect(nounBank).not.toContain("truth");
+    expect(nounBank).not.toContain("war");
+  });
+});
+
+describe("selectUnusedNounPair", () => {
+  it("selects two different unused nouns", () => {
+    const pair = selectUnusedNounPair({
+      bank: ["tree", "noise", "window"],
+      usedNouns: ["tree"],
+      random: () => 0
+    });
+
+    expect(pair).toEqual({ nounA: "noise", nounB: "window" });
+  });
+
+  it("returns null when fewer than two nouns remain", () => {
+    expect(
+      selectUnusedNounPair({
+        bank: ["tree", "noise"],
+        usedNouns: ["tree"],
+        random: () => 0
+      })
+    ).toBeNull();
+  });
+
+  it("does not return a noun that was already used", () => {
+    const usedNouns = nounBank.slice(0, nounBank.length - 2);
+    const pair = selectUnusedNounPair({ usedNouns, random: () => 0 });
+
+    expect(pair).toEqual({
+      nounA: nounBank[nounBank.length - 2],
+      nounB: nounBank[nounBank.length - 1]
+    });
   });
 });
