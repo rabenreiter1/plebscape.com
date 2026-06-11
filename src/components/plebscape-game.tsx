@@ -19,11 +19,15 @@ const nounLineHeight = 0.92;
 
 type ChoiceTypography = {
   nounFontSize: number;
+  percentCenterYBySide: Record<Side, number>;
   percentFontSize: number;
-  percentOffset: number;
 };
 
-const initialChoiceTypography = getChoiceTypography(fittedTextMinPx);
+const initialChoiceTypography: ChoiceTypography = {
+  nounFontSize: fittedTextMinPx,
+  percentCenterYBySide: { a: 12, b: 12 },
+  percentFontSize: getPercentFontSize(fittedTextMinPx)
+};
 
 export function PlebscapeGame() {
   const [state, setState] = useState<GameState>("loading");
@@ -295,7 +299,18 @@ function ChoiceGrid({
           .filter((size): size is number => size !== null);
 
         if (sizes.length === choices.length) {
-          setTypography(getChoiceTypography(Math.floor(Math.min(...sizes))));
+          const nounFontSize = Math.floor(Math.min(...sizes));
+          const percentFontSize = getPercentFontSize(nounFontSize);
+          const percentCenterYBySide = choices.reduce<Record<Side, number>>(
+            (centers, choice) => {
+              const button = buttonRefs.current[choice.side];
+              centers[choice.side] = button ? getPercentCenterY(nounFontSize, button) : centers[choice.side];
+              return centers;
+            },
+            { a: 12, b: 12 }
+          );
+
+          setTypography({ nounFontSize, percentCenterYBySide, percentFontSize });
         }
       });
     };
@@ -319,8 +334,7 @@ function ChoiceGrid({
 
   const typographyStyle = {
     "--noun-font-size": `${typography.nounFontSize}px`,
-    "--percent-font-size": `${typography.percentFontSize}px`,
-    "--percent-offset": `${typography.percentOffset}px`
+    "--percent-font-size": `${typography.percentFontSize}px`
   } as CSSProperties;
 
   return (
@@ -343,6 +357,7 @@ function ChoiceGrid({
             ref={(button) => {
               buttonRefs.current[choice.side] = button;
             }}
+            style={{ "--percent-center-y": `${typography.percentCenterYBySide[choice.side]}px` } as CSSProperties}
             type="button"
             onClick={() => void onChoose(choice.side)}
           >
@@ -364,23 +379,23 @@ function getFittedNounSize(
   const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
   const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
   const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
-  const availableHalfHeight = Math.max(1, (button.clientHeight - verticalPadding) / 2);
+  const availableHeight = Math.max(1, button.clientHeight - verticalPadding);
 
   let low = fittedTextMinPx;
   let high = fittedTextMaxPx;
 
   while (high - low > 0.5) {
     const next = (low + high) / 2;
-    const nextTypography = getChoiceTypography(next);
     context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
     const measuredWidth = context.measureText(text).width;
-    const nounHalfHeight = (next * nounLineHeight) / 2;
-    const revealedLowerHeight = nextTypography.percentOffset + nextTypography.percentFontSize;
+    const nounLineBoxHeight = next * nounLineHeight;
+    const nounTopY = button.clientHeight / 2 - nounLineBoxHeight / 2;
+    const percentFontSize = getPercentFontSize(next);
 
     if (
       measuredWidth <= availableWidth &&
-      nounHalfHeight <= availableHalfHeight &&
-      revealedLowerHeight <= availableHalfHeight
+      nounLineBoxHeight <= availableHeight &&
+      percentFontSize <= nounTopY
     ) {
       low = next;
     } else {
@@ -391,15 +406,15 @@ function getFittedNounSize(
   return low;
 }
 
-function getChoiceTypography(nounFontSize: number): ChoiceTypography {
-  const percentGap = Math.min(14, Math.max(8.5, nounFontSize * 0.12));
-  const percentFontSize = Math.min(38, Math.max(16, nounFontSize * 0.34));
+function getPercentCenterY(nounFontSize: number, button: HTMLButtonElement) {
+  const nounLineBoxHeight = nounFontSize * nounLineHeight;
+  const nounTopY = button.clientHeight / 2 - nounLineBoxHeight / 2;
 
-  return {
-    nounFontSize,
-    percentFontSize,
-    percentOffset: nounFontSize * 0.46 + percentGap
-  };
+  return Math.max(0, nounTopY / 2);
+}
+
+function getPercentFontSize(nounFontSize: number) {
+  return Math.min(38, Math.max(16, nounFontSize * 0.34));
 }
 
 function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {

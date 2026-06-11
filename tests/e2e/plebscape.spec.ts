@@ -50,7 +50,7 @@ async function expectNounCentered(page: Page, noun: string) {
   expect(metrics.whiteSpace).toBe("nowrap");
 }
 
-async function expectPercentBelowNounInsideButton(page: Page, noun: string, percent: string) {
+async function expectPercentAboveNounCenteredInTopBand(page: Page, noun: string, percent: string) {
   const metrics = await page.getByRole("button", { name: new RegExp(`${noun} ${percent}`) }).evaluate(
     (button, expectedPercent) => {
       const nounElement = button.querySelector(".noun-word");
@@ -65,23 +65,26 @@ async function expectPercentBelowNounInsideButton(page: Page, noun: string, perc
       const buttonBox = button.getBoundingClientRect();
       const nounBox = nounElement.getBoundingClientRect();
       const percentBox = percentElement.getBoundingClientRect();
+      const styles = window.getComputedStyle(button);
+      const innerTop = buttonBox.top + parseFloat(styles.borderTopWidth);
+      const expectedPercentCenterY = innerTop + (nounBox.top - innerTop) / 2;
+      const percentCenterY = percentBox.top + percentBox.height / 2;
 
       return {
-        buttonBottom: buttonBox.bottom,
-        buttonTop: buttonBox.top,
-        gap: percentBox.top - nounBox.bottom,
-        nounBottom: nounBox.bottom,
+        expectedPercentCenterY,
+        innerTop,
+        nounTop: nounBox.top,
         percentBottom: percentBox.bottom,
+        percentCenterY,
         percentTop: percentBox.top
       };
     },
     percent
   );
 
-  expect(metrics.percentTop).toBeGreaterThan(metrics.nounBottom);
-  expect(metrics.gap).toBeGreaterThanOrEqual(8);
-  expect(metrics.percentTop).toBeGreaterThanOrEqual(metrics.buttonTop);
-  expect(metrics.percentBottom).toBeLessThanOrEqual(metrics.buttonBottom);
+  expect(metrics.percentBottom).toBeLessThanOrEqual(metrics.nounTop);
+  expect(metrics.percentTop).toBeGreaterThanOrEqual(metrics.innerTop - 1);
+  expect(Math.abs(metrics.percentCenterY - metrics.expectedPercentCenterY)).toBeLessThanOrEqual(2);
 }
 
 async function expectEqualNounFontSizes(page: Page) {
@@ -277,7 +280,7 @@ test("shows failure actions", async ({ page }) => {
   await expectNounCentered(page, "handkerchief");
   await expectNounCentered(page, "tin");
   await expectEqualNounFontSizes(page);
-  await expectPercentBelowNounInsideButton(page, "handkerchief", "80%");
+  await expectPercentAboveNounCenteredInTopBand(page, "handkerchief", "80%");
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
   await expectNoPageOverflow(page);
@@ -294,11 +297,11 @@ test("fits long noun text from each button box on wide screens", async ({ page }
   await expectNounCentered(page, "tin");
   await expectEqualNounFontSizes(page);
   await expectLockedFailureHero(page);
-  await expectPercentBelowNounInsideButton(page, "handkerchief", "80%");
-  await expectPercentBelowNounInsideButton(page, "tin", "20%");
+  await expectPercentAboveNounCenteredInTopBand(page, "handkerchief", "80%");
+  await expectPercentAboveNounCenteredInTopBand(page, "tin", "20%");
 });
 
-test("keeps descenders clear of revealed percentages", async ({ page }) => {
+test("positions revealed percentages above nouns in the top band", async ({ page }) => {
   await page.unroute("**/api/levels/next");
   await page.unroute("**/api/votes");
   await page.route("**/api/levels/next", async (route) => {
@@ -346,8 +349,8 @@ test("keeps descenders clear of revealed percentages", async ({ page }) => {
     await expectNounCentered(page, "bagel");
     await expectNounCentered(page, "jigsaw");
     await expectEqualNounFontSizes(page);
-    await expectPercentBelowNounInsideButton(page, "bagel", "59%");
-    await expectPercentBelowNounInsideButton(page, "jigsaw", "41%");
+    await expectPercentAboveNounCenteredInTopBand(page, "bagel", "59%");
+    await expectPercentAboveNounCenteredInTopBand(page, "jigsaw", "41%");
     await expectNoPageOverflow(page);
   }
 });

@@ -192,11 +192,11 @@ h1 {
 
 .noun-percent {
   position: absolute;
-  top: calc(50% + var(--percent-offset, 2rem));
+  top: var(--percent-center-y, 1rem);
   left: 50%;
   font-size: var(--percent-font-size, 1rem);
   line-height: 1;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .status-text {
