@@ -106,21 +106,30 @@ async function expectLockedFailureHero(page: Page) {
     const svg = slot.querySelector("svg.failure-hero-mark");
     const image = slot.querySelector("svg.failure-hero-mark image");
     const texts = Array.from(slot.querySelectorAll("svg.failure-hero-mark text"));
+    const content = slot.querySelector("svg.failure-hero-mark g");
 
-    if (!svg || !image || texts.length !== 2) {
+    if (!svg || !image || texts.length !== 2 || !content) {
       throw new Error("Failure hero SVG composition is incomplete.");
     }
 
     const slotBox = slot.getBoundingClientRect();
     const svgBox = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+    const contentBoxes = [image, ...texts].map((node) => node.getBoundingClientRect());
+    const contentLeftPx = Math.min(...contentBoxes.map((box) => box.left));
+    const contentRightPx = Math.max(...contentBoxes.map((box) => box.right));
+    const contentCenterPx = contentLeftPx + (contentRightPx - contentLeftPx) / 2;
+    const svgUnitsPerPixel = viewBox.width / svgBox.width;
 
     return {
       aspectRatio: svgBox.width / svgBox.height,
+      contentCenterX: viewBox.x + (contentCenterPx - svgBox.left) * svgUnitsPerPixel,
       imageCount: image ? 1 : 0,
       slotCenterX: slotBox.left + slotBox.width / 2,
       svgCenterX: svgBox.left + svgBox.width / 2,
       textCount: texts.length,
-      textValues: texts.map((text) => text.textContent)
+      textValues: texts.map((text) => text.textContent),
+      viewBoxCenterX: viewBox.x + viewBox.width / 2
     };
   });
 
@@ -128,6 +137,7 @@ async function expectLockedFailureHero(page: Page) {
   expect(metrics.textCount).toBe(2);
   expect(metrics.textValues).toEqual(["YOU", "FAILED!"]);
   expect(metrics.aspectRatio).toBeCloseTo(4, 1);
+  expect(Math.abs(metrics.contentCenterX - metrics.viewBoxCenterX)).toBeLessThanOrEqual(2);
   expect(Math.abs(metrics.slotCenterX - metrics.svgCenterX)).toBeLessThanOrEqual(2);
 }
 

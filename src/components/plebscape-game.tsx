@@ -220,29 +220,31 @@ function FailureHero() {
         role="img"
         viewBox="0 0 720 180"
       >
-        <image href={apeImageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
-        <text
-          x="182"
-          y="72"
-          fill="currentColor"
-          fontFamily="Arial, Helvetica, sans-serif"
-          fontSize="82"
-          fontWeight="900"
-          textAnchor="start"
-        >
-          YOU
-        </text>
-        <text
-          x="182"
-          y="150"
-          fill="currentColor"
-          fontFamily="Arial, Helvetica, sans-serif"
-          fontSize="82"
-          fontWeight="900"
-          textAnchor="start"
-        >
-          FAILED!
-        </text>
+        <g transform="translate(95 0)">
+          <image href={apeImageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
+          <text
+            x="182"
+            y="72"
+            fill="currentColor"
+            fontFamily="Arial, Helvetica, sans-serif"
+            fontSize="82"
+            fontWeight="900"
+            textAnchor="start"
+          >
+            YOU
+          </text>
+          <text
+            x="182"
+            y="150"
+            fill="currentColor"
+            fontFamily="Arial, Helvetica, sans-serif"
+            fontSize="82"
+            fontWeight="900"
+            textAnchor="start"
+          >
+            FAILED!
+          </text>
+        </g>
       </svg>
     </>
   );
