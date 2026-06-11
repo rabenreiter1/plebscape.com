@@ -152,9 +152,11 @@ h1 {
   transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
-.noun-button:hover:not(:disabled) {
-  background: var(--ink);
-  color: var(--paper);
+@media (hover: hover) and (pointer: fine) {
+  .noun-button:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--paper);
+  }
 }
 
 .noun-button:active:not(:disabled) {

@@ -107,6 +107,65 @@ async function expectPercentAboveNounCenteredInTopBand(page: Page, noun: string,
   }
 }
 
+type CanvasTextCall = {
+  font: string;
+  text: string;
+  textAlign: CanvasTextAlign;
+  width: number;
+  x: number;
+  y: number;
+};
+
+function getCanvasFontSize(font: string) {
+  const size = Number(font.match(/(\d+(?:\.\d+)?)px/)?.[1]);
+
+  if (!Number.isFinite(size)) {
+    throw new Error(`Could not parse canvas font size from "${font}".`);
+  }
+
+  return size;
+}
+
+function expectShareButtonTextGeometry({
+  nounCall,
+  percentCall,
+  x,
+  y
+}: {
+  nounCall: CanvasTextCall;
+  percentCall: CanvasTextCall;
+  x: number;
+  y: number;
+}) {
+  const width = 440;
+  const height = 160;
+  const borderWidth = 6;
+  const nounLineHeight = 0.92;
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  const innerTop = y + borderWidth;
+  const nounFontSize = getCanvasFontSize(nounCall.font);
+  const percentFontSize = getCanvasFontSize(percentCall.font);
+  const nounTopY = centerY - (nounFontSize * nounLineHeight) / 2;
+  const topBandHeight = nounTopY - innerTop;
+  const expectedPercentCenterY = innerTop + topBandHeight / 2;
+  const expectedPercentFontSize = topBandHeight - 8;
+
+  expect(nounCall.textAlign).toBe("center");
+  expect(percentCall.textAlign).toBe("center");
+  expect(nounCall.x).toBe(centerX);
+  expect(nounCall.y).toBe(centerY);
+  expect(percentCall.x).toBe(centerX);
+  expect(percentCall.y).toBeLessThan(nounCall.y);
+  expect(Math.abs(percentCall.y - expectedPercentCenterY)).toBeLessThanOrEqual(1);
+  expect(percentFontSize).toBeGreaterThanOrEqual(16);
+  expect(percentCall.width).toBeLessThanOrEqual(width - 36);
+
+  if (percentFontSize >= expectedPercentFontSize - 2) {
+    expect(Math.abs(percentFontSize - expectedPercentFontSize)).toBeLessThanOrEqual(1);
+  }
+}
+
 async function expectEqualNounFontSizes(page: Page) {
   await expect
     .poll(async () =>
@@ -207,6 +266,25 @@ async function getButtonBox(page: Page, name: string | RegExp) {
   });
 }
 
+async function supportsPrimaryHover(page: Page) {
+  return page.evaluate(() => window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+}
+
+async function getChoiceButtonVisualStates(page: Page) {
+  return page.locator(".choice-grid .noun-button").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const styles = window.getComputedStyle(button);
+
+      return {
+        ariaPressed: button.getAttribute("aria-pressed"),
+        backgroundColor: styles.backgroundColor,
+        color: styles.color,
+        text: button.textContent?.trim()
+      };
+    })
+  );
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/levels/next", async (route) => {
     await route.fulfill({
@@ -287,6 +365,40 @@ test("plays, reveals a pass, and hides percentages before choosing", async ({ pa
     "true"
   );
   await expectEqualNounFontSizes(page);
+});
+
+test("does not carry a pressed-looking button into the next level on touch", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+      originalSetTimeout(handler, Math.min(timeout ?? 0, 1), ...args)) as typeof window.setTimeout;
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "tin" }).click();
+  await expect(page.getByText("60%")).toBeHidden({ timeout: 4000 });
+  await expect(page.getByRole("button", { name: "tin" })).toBeVisible();
+  await expect(page.locator('.choice-grid .noun-button[aria-pressed="true"]')).toHaveCount(0);
+
+  if (!(await supportsPrimaryHover(page))) {
+    const visualStates = await getChoiceButtonVisualStates(page);
+    expect(visualStates).toHaveLength(2);
+    expect(visualStates.every((button) => button.ariaPressed === "false")).toBe(true);
+    expect(visualStates.every((button) => button.backgroundColor !== "rgb(11, 11, 11)")).toBe(true);
+  }
+});
+
+test("keeps desktop hover feedback for precise pointers", async ({ page }) => {
+  await page.goto("/");
+
+  if (!(await supportsPrimaryHover(page))) {
+    return;
+  }
+
+  const button = page.getByRole("button", { name: "handkerchief" });
+  await button.hover();
+  await expect(button).toHaveCSS("background-color", "rgb(11, 11, 11)");
+  await expect(button).toHaveCSS("color", "rgb(244, 241, 232)");
 });
 
 test("shows failure actions", async ({ page }) => {
@@ -681,9 +793,13 @@ test("draws share-only score from exact post-vote run percentages", async ({ pag
   const headerGroupCenter = headerGroupX + headerGroupWidth / 2;
   const leftPercentCall = fillTextCalls.find((call) => call.text === "65%");
   const rightPercentCall = fillTextCalls.find((call) => call.text === "35%");
+  const leftNounCall = fillTextCalls.find((call) => call.text === "bagel");
+  const rightNounCall = fillTextCalls.find((call) => call.text === "jigsaw");
 
   expect(leftPercentCall).toBeDefined();
   expect(rightPercentCall).toBeDefined();
+  expect(leftNounCall).toBeDefined();
+  expect(rightNounCall).toBeDefined();
 
   expect(levelCall!.textAlign).toBe("left");
   expect(scoreCall!.textAlign).toBe("left");
@@ -692,7 +808,21 @@ test("draws share-only score from exact post-vote run percentages", async ({ pag
   expect(averageCall!.x).toBe(540);
   expect(averageCall!.y).toBe(500);
   expect(Math.abs((leftPercentCall!.x + rightPercentCall!.x) / 2 - 540)).toBeLessThanOrEqual(1);
-  expect(leftPercentCall!.y - averageCall!.y).toBe(120);
+  expectShareButtonTextGeometry({
+    nounCall: leftNounCall!,
+    percentCall: leftPercentCall!,
+    x: 85,
+    y: 575
+  });
+  expectShareButtonTextGeometry({
+    nounCall: rightNounCall!,
+    percentCall: rightPercentCall!,
+    x: 555,
+    y: 575
+  });
+  expect(getCanvasFontSize(leftNounCall!.font)).toBeCloseTo(getCanvasFontSize(rightNounCall!.font), 3);
+  expect(leftPercentCall!.y - averageCall!.y).toBeGreaterThan(80);
+  expect(leftPercentCall!.y - averageCall!.y).toBeLessThan(120);
   expect(averageCall!.y - scoreCall!.y).toBeGreaterThan(120);
   expect(averageCall!.y - scoreCall!.y).toBeLessThan(220);
   expect(domainCall!.x).toBe(540);

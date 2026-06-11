@@ -695,20 +695,22 @@ async function renderFailureImage(
   drawShareScoreHeader(context, ape, runLevel, score.scoreDisplay);
 
   drawText(context, `AVERAGE CHOICE: ${score.averageChoiceDisplay}`, 540, 500, 34, "700");
-  drawShareButton(context, {
-    noun: result.nounA,
-    percent: displayPercent(result.percentA),
-    pressed: result.chosenSide === "a",
-    x: 85,
-    y: 575
-  });
-  drawShareButton(context, {
-    noun: result.nounB,
-    percent: displayPercent(result.percentB),
-    pressed: result.chosenSide === "b",
-    x: 555,
-    y: 575
-  });
+  drawShareButtonPair(context, [
+    {
+      noun: result.nounA,
+      percent: displayPercent(result.percentA),
+      pressed: result.chosenSide === "a",
+      x: 85,
+      y: 575
+    },
+    {
+      noun: result.nounB,
+      percent: displayPercent(result.percentB),
+      pressed: result.chosenSide === "b",
+      x: 555,
+      y: 575
+    }
+  ]);
   context.fillStyle = "#0b0b0b";
   drawText(context, "PLEBSCAPE.COM", 540, 910, 48, "900");
   context.fillStyle = "#68645b";
@@ -767,27 +769,56 @@ function drawShareScoreHeader(
   context.textAlign = "center";
 }
 
-function drawShareButton(
-  context: CanvasRenderingContext2D,
-  {
-    noun,
-    percent,
-    pressed,
-    x,
-    y
-  }: { noun: string; percent: string; pressed: boolean; x: number; y: number }
-) {
+type ShareButtonConfig = {
+  noun: string;
+  percent: string;
+  pressed: boolean;
+  x: number;
+  y: number;
+};
+
+function drawShareButtonPair(context: CanvasRenderingContext2D, buttons: ShareButtonConfig[]) {
   const width = 440;
   const height = 160;
+  const borderWidth = 6;
+  const maxTextWidth = width - 36;
+  const nounLineHeight = 0.92;
+  const percentPadding = 4;
+  const minimumPercentFontSize = 16;
+  const maxNounFontSize = 54;
 
-  context.fillStyle = pressed ? "#0b0b0b" : "#f4f1e8";
-  context.fillRect(x, y, width, height);
-  context.lineWidth = 6;
-  context.strokeStyle = "#0b0b0b";
-  context.strokeRect(x, y, width, height);
-  context.fillStyle = pressed ? "#f4f1e8" : "#0b0b0b";
-  drawFittedText(context, percent, x + width / 2, y + 45, 70, "900", width - 36);
-  drawFittedText(context, noun, x + width / 2, y + 105, 54, "900", width - 36);
+  const nounWidthFit = Math.min(
+    ...buttons.map((button) => getFittedTextSize(context, button.noun, maxNounFontSize, "900", maxTextWidth))
+  );
+  const maxNounSizeByVerticalSpace =
+    ((height / 2 - borderWidth - percentPadding * 2 - minimumPercentFontSize) * 2) / nounLineHeight;
+  const nounFontSize = Math.max(12, Math.min(nounWidthFit, maxNounSizeByVerticalSpace));
+  const nounLineBoxHeight = nounFontSize * nounLineHeight;
+  const nounTopY = height / 2 - nounLineBoxHeight / 2;
+  const topBandHeight = nounTopY - borderWidth;
+  const verticalFillPercentSize = Math.max(minimumPercentFontSize, topBandHeight - percentPadding * 2);
+  const percentFontSize = getFittedTextSize(
+    context,
+    "100%",
+    verticalFillPercentSize,
+    "900",
+    maxTextWidth
+  );
+  const percentCenterY = borderWidth + topBandHeight / 2;
+
+  buttons.forEach(({ noun, percent, pressed, x, y }) => {
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    context.fillStyle = pressed ? "#0b0b0b" : "#f4f1e8";
+    context.fillRect(x, y, width, height);
+    context.lineWidth = borderWidth;
+    context.strokeStyle = "#0b0b0b";
+    context.strokeRect(x, y, width, height);
+    context.fillStyle = pressed ? "#f4f1e8" : "#0b0b0b";
+    drawText(context, percent, centerX, y + percentCenterY, percentFontSize, "900");
+    drawText(context, noun, centerX, centerY, nounFontSize, "900");
+  });
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -811,11 +842,9 @@ function drawText(
   context.fillText(text, x, y);
 }
 
-function drawFittedText(
+function getFittedTextSize(
   context: CanvasRenderingContext2D,
   text: string,
-  x: number,
-  y: number,
   size: number,
   weight: string,
   maxWidth: number
@@ -832,5 +861,5 @@ function drawFittedText(
     fittedSize -= 2;
   }
 
-  context.fillText(text, x, y);
+  return fittedSize;
 }
