@@ -11,7 +11,7 @@ type DisplayChoice = {
 };
 
 const slogan = "There is only one way to escape the pleb.";
-const apeImageSrc = "/ape.png";
+const apeImageSrc = "/ape-game.png";
 const revealDelayMs = 2000;
 
 export function PlebscapeGame() {
@@ -156,16 +156,21 @@ export function PlebscapeGame() {
       </header>
 
       <section className="game-stage" aria-live="polite">
-        {state === "failed" && (
-          <div className="failure-banner">
-            <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
-            <h2>YOU FAILED!</h2>
-          </div>
-        )}
-
         {canShowBoard && (
           <>
+            <div className="failure-slot">
+              <div className="failure-banner" aria-hidden={state !== "failed"}>
+                {state === "failed" && (
+                  <>
+                    <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
+                    <h2>YOU FAILED!</h2>
+                  </>
+                )}
+              </div>
+            </div>
+
             <p className="level-label">Level {runLevel}</p>
+
             <ChoiceGrid
               choices={choices}
               chosenSide={chosenSide}
@@ -173,10 +178,21 @@ export function PlebscapeGame() {
               onChoose={choose}
               result={result}
             />
+
+            <div className="action-slot">
+              {state === "failed" && result && (
+                <FailureActions result={result} runLevel={runLevel} onRestart={restart} />
+              )}
+            </div>
           </>
         )}
 
-        {state === "failed" && result && <FailureActions result={result} runLevel={runLevel} onRestart={restart} />}
+        {state === "failed" && !canShowBoard && (
+          <div className="failure-banner">
+            <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
+            <h2>YOU FAILED!</h2>
+          </div>
+        )}
 
         {state === "loading" && <p className="status-text">...</p>}
 

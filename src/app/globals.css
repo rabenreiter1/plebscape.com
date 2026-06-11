@@ -12,12 +12,16 @@
 }
 
 html {
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   background: var(--paper);
 }
 
 body {
-  min-height: 100vh;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
   margin: 0;
   background: var(--paper);
   color: var(--ink);
@@ -38,9 +42,11 @@ button:focus-visible,
 .game-shell {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 100svh;
-  padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
 .game-header {
@@ -56,6 +62,7 @@ button:focus-visible,
   display: grid;
   gap: 4px;
   min-width: 0;
+  container-type: inline-size;
 }
 
 h1,
@@ -65,13 +72,13 @@ p {
 }
 
 h1 {
-  font-size: clamp(1.1rem, 1rem + 1vw, 1.65rem);
+  font-size: clamp(1.05rem, 2.6cqi, 1.65rem);
   font-weight: 900;
 }
 
 .brand-lockup p {
   color: var(--muted);
-  font-size: clamp(0.78rem, 0.72rem + 0.3vw, 0.95rem);
+  font-size: clamp(0.72rem, 1.7cqi, 0.95rem);
   font-weight: 700;
   line-height: 1.25;
   max-width: 34rem;
@@ -98,18 +105,22 @@ h1 {
 
 .game-stage {
   display: grid;
-  align-content: center;
+  grid-template-rows: clamp(4.75rem, 18dvh, 9rem) auto minmax(0, 1fr) clamp(3.5rem, 9dvh, 4.75rem);
+  align-items: center;
   justify-items: center;
-  gap: 28px;
+  gap: clamp(0.45rem, 1.5dvh, 1.25rem);
   width: min(100%, 960px);
+  height: 100%;
+  min-height: 0;
   margin: 0 auto;
-  padding: 44px 0 24px;
+  overflow: hidden;
+  padding: clamp(0.35rem, 1.5dvh, 1rem) 0 0;
   text-align: center;
 }
 
 .level-label {
   color: var(--muted);
-  font-size: 1rem;
+  font-size: clamp(0.85rem, 2cqi, 1rem);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -117,25 +128,29 @@ h1 {
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: clamp(0.5rem, 2dvh, 1rem);
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
 }
 
 .noun-button {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 12px;
-  min-height: clamp(172px, 28svh, 320px);
+  gap: clamp(0.3rem, 1.2dvh, 0.75rem);
+  min-width: 0;
+  min-height: 0;
   border: 3px solid var(--ink);
   border-radius: 0;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-size: clamp(2.3rem, 1.45rem + 4vw, 6rem);
+  font-size: clamp(2rem, 11cqi, 5.6rem);
   font-weight: 900;
   overflow-wrap: anywhere;
-  padding: 18px;
+  padding: clamp(0.65rem, 2dvh, 1.1rem);
   transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
@@ -158,7 +173,7 @@ h1 {
 }
 
 .noun-button.has-result {
-  min-height: clamp(190px, 28svh, 320px);
+  min-height: 0;
 }
 
 .noun-word,
@@ -168,7 +183,7 @@ h1 {
 }
 
 .noun-percent {
-  font-size: clamp(1.4rem, 1rem + 2vw, 3rem);
+  font-size: clamp(1.15rem, 5cqi, 2.7rem);
   line-height: 1;
 }
 
@@ -187,26 +202,38 @@ h1 {
 }
 
 .stack h2 {
-  font-size: clamp(2.25rem, 1.5rem + 5vw, 5.5rem);
+  font-size: clamp(2rem, 10cqi, 5.5rem);
   font-weight: 900;
   line-height: 0.95;
+}
+
+.failure-slot,
+.action-slot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
 }
 
 .failure-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: clamp(0.45rem, 2cqi, 1rem);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
 }
 
 .failure-ape {
-  width: clamp(72px, 14vw, 132px);
-  height: clamp(72px, 14vw, 132px);
+  width: clamp(3.5rem, 8cqi, 7.5rem);
+  height: clamp(3.5rem, 8cqi, 7.5rem);
   object-fit: contain;
 }
 
 .failure-banner h2 {
-  font-size: clamp(2.3rem, 1.5rem + 5vw, 5.6rem);
+  font-size: clamp(1.9rem, 8cqi, 5.3rem);
   font-weight: 900;
   line-height: 0.95;
 }
@@ -215,18 +242,18 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
+  gap: clamp(0.5rem, 1.5dvh, 0.75rem);
 }
 
 .text-button {
-  min-height: 48px;
+  min-height: 44px;
   border: 2px solid var(--ink);
   border-radius: 0;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
   font-weight: 900;
-  padding: 12px 18px;
+  padding: 10px 16px;
   text-transform: uppercase;
 }
 
@@ -245,17 +272,20 @@ h1 {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 18px;
+  overflow: hidden;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   background: rgb(11 11 11 / 70%);
 }
 
 .rules-modal {
   width: min(100%, 720px);
-  max-height: min(760px, 86svh);
-  overflow: auto;
+  max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow: hidden;
   border: 3px solid var(--ink);
   background: var(--paper);
-  padding: 20px;
+  padding: clamp(0.75rem, 2dvh, 1.25rem);
+  container-type: inline-size;
 }
 
 .rules-header {
@@ -263,30 +293,32 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: clamp(0.6rem, 1.5dvh, 1rem);
 }
 
 .rules-header h2 {
-  font-size: 1.6rem;
+  font-size: clamp(1.25rem, 3.5cqi, 1.6rem);
   font-weight: 900;
 }
 
 .rules-list {
   display: grid;
-  gap: 10px;
+  gap: clamp(0.3rem, 1dvh, 0.6rem);
   margin: 0;
   padding-left: 1.25rem;
   text-align: left;
+  font-size: clamp(0.83rem, 2.4cqi, 1rem);
 }
 
 .rules-list li {
-  line-height: 1.45;
+  line-height: 1.28;
 }
 
 @media (max-width: 640px) {
   .game-stage {
-    gap: 22px;
-    padding-top: 32px;
+    grid-template-rows: clamp(4rem, 15dvh, 5.5rem) auto minmax(0, 1fr) clamp(3.1rem, 8dvh, 3.75rem);
+    gap: clamp(0.35rem, 1.15dvh, 0.75rem);
+    padding-top: clamp(0.2rem, 1dvh, 0.5rem);
   }
 
   .choice-grid {
@@ -294,11 +326,26 @@ h1 {
   }
 
   .noun-button {
-    min-height: 28svh;
+    font-size: clamp(2rem, 15cqi, 4.4rem);
   }
 
-  .failure-banner {
-    gap: 10px;
+  .noun-percent {
+    font-size: clamp(1.1rem, 8cqi, 2.15rem);
+  }
+
+  .failure-ape {
+    width: clamp(3rem, 16cqi, 4.7rem);
+    height: clamp(3rem, 16cqi, 4.7rem);
+  }
+
+  .failure-banner h2 {
+    font-size: clamp(1.7rem, 13cqi, 3.2rem);
+  }
+
+  .text-button {
+    min-height: 42px;
+    padding: 9px 12px;
+    font-size: 0.9rem;
   }
 }
 
