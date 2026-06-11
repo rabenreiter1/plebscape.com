@@ -70,7 +70,9 @@ No OpenAI key or paid LLM provider is required. New levels are created from the
 checked-in 10,000 noun bank.
 
 Create/update the production tables once with the production `DATABASE_URL`, then
-reserve nouns from any existing production levels:
+reserve nouns from any existing production levels. The app also performs the
+`used_nouns` creation/backfill idempotently at runtime, so this command is a
+manual safety check rather than an SSH-only deployment blocker:
 
 ```powershell
 npm.cmd run db:push

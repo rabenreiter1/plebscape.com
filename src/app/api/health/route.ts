@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/db/client";
+import { ensureUsedNounsSchema } from "@/db/ensure-schema";
 import { levels, usedNouns, votes } from "@/db/schema";
 import { validateNounBank } from "@/lib/nouns";
 import { logApiError } from "@/lib/server-errors";
@@ -48,6 +49,8 @@ export async function GET() {
 
       await db.select({ id: votes.id }).from(votes).limit(1);
       checks.votesTable = { ok: true };
+
+      await ensureUsedNounsSchema(db);
 
       await db.select({ noun: usedNouns.noun }).from(usedNouns).limit(1);
       checks.usedNounsTable = { ok: true };

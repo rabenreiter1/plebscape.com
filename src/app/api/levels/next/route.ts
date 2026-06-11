@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getDb } from "@/db/client";
+import { ensureUsedNounsSchema } from "@/db/ensure-schema";
 import { levels, usedNouns } from "@/db/schema";
 import { getNextDevLevel, shouldUseDevStore } from "@/lib/dev-store";
 import { selectUnusedNounPair } from "@/lib/nouns";
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
+    await ensureUsedNounsSchema(db);
     const filters = [gt(sql`${levels.votesA} + ${levels.votesB}`, 0)];
 
     if (seenLevelIds.length > 0) {
