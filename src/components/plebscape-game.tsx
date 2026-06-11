@@ -11,14 +11,17 @@ import {
   type Side
 } from "@/lib/game";
 
-type GameState = "loading" | "choosing" | "submitting" | "revealed" | "failed" | "exhausted" | "error";
+type GameState = "loading" | "choosing" | "submitting" | "revealed" | "failed" | "escaped" | "exhausted" | "error";
 type DisplayChoice = {
   side: Side;
   noun: string;
 };
+type TerminalOutcome = "failed" | "escaped";
 
 const slogan = "There is only one way to escape the pleb.";
 const apeImageSrc = "/ape-game.png";
+const escapedApeImageSrc = "/ape-escaped.png";
+const finalLevel = 100;
 const revealDelayMs = 2000;
 const fittedTextMinPx = 24;
 const fittedTextMaxPx = 112;
@@ -136,6 +139,11 @@ export function PlebscapeGame() {
       setChosenSide(nextResult.chosenSide);
       setChosenPercentages(nextChosenPercentages);
 
+      if (runLevel === finalLevel) {
+        setState("escaped");
+        return;
+      }
+
       if (!nextResult.passed) {
         setState("failed");
         return;
@@ -164,6 +172,7 @@ export function PlebscapeGame() {
   };
 
   const canShowBoard = choices.length > 0 && state !== "loading" && state !== "error" && state !== "exhausted";
+  const terminalOutcome: TerminalOutcome | null = state === "failed" || state === "escaped" ? state : null;
 
   return (
     <main className="game-shell">
@@ -187,8 +196,8 @@ export function PlebscapeGame() {
         {canShowBoard && (
           <>
             <div className="failure-slot">
-              <div className="failure-banner" aria-hidden={state !== "failed"}>
-                {state === "failed" && <FailureHero />}
+              <div className="failure-banner" aria-hidden={!terminalOutcome}>
+                {terminalOutcome && <OutcomeHero outcome={terminalOutcome} />}
               </div>
             </div>
 
@@ -203,9 +212,10 @@ export function PlebscapeGame() {
             />
 
             <div className="action-slot">
-              {state === "failed" && result && (
+              {terminalOutcome && result && (
                 <FailureActions
                   chosenPercentages={chosenPercentages}
+                  outcome={terminalOutcome}
                   result={result}
                   runLevel={runLevel}
                   onRestart={restart}
@@ -215,9 +225,9 @@ export function PlebscapeGame() {
           </>
         )}
 
-        {state === "failed" && !canShowBoard && (
+        {terminalOutcome && !canShowBoard && (
           <div className="failure-banner">
-            <FailureHero />
+            <OutcomeHero outcome={terminalOutcome} />
           </div>
         )}
 
@@ -240,10 +250,16 @@ export function PlebscapeGame() {
   );
 }
 
-function FailureHero() {
+function OutcomeHero({ outcome }: { outcome: TerminalOutcome }) {
+  const isEscaped = outcome === "escaped";
+  const imageSrc = isEscaped ? escapedApeImageSrc : apeImageSrc;
+  const secondLine = isEscaped ? "ESCAPED!" : "FAILED!";
+  const heroFontSize = isEscaped ? 72 : 82;
+  const heroGroupX = isEscaped ? 69 : 95;
+
   return (
     <>
-      <h2 className="sr-only">YOU FAILED!</h2>
+      <h2 className="sr-only">YOU {secondLine}</h2>
       <svg
         aria-hidden="true"
         className="failure-hero-mark"
@@ -251,14 +267,14 @@ function FailureHero() {
         role="img"
         viewBox="0 0 720 220"
       >
-        <g transform="translate(95 22)">
-          <image href={apeImageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
+        <g transform={`translate(${heroGroupX} 22)`}>
+          <image href={imageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
           <text
             x="182"
             y="72"
             fill="currentColor"
             fontFamily="Arial, Helvetica, sans-serif"
-            fontSize="82"
+            fontSize={heroFontSize}
             fontWeight="900"
             textAnchor="start"
           >
@@ -269,11 +285,11 @@ function FailureHero() {
             y="150"
             fill="currentColor"
             fontFamily="Arial, Helvetica, sans-serif"
-            fontSize="82"
+            fontSize={heroFontSize}
             fontWeight="900"
             textAnchor="start"
           >
-            FAILED!
+            {secondLine}
           </text>
         </g>
       </svg>
@@ -495,11 +511,13 @@ function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
 
 function FailureActions({
   chosenPercentages,
+  outcome,
   runLevel,
   result,
   onRestart
 }: {
   chosenPercentages: number[];
+  outcome: TerminalOutcome;
   runLevel: number;
   result: RevealedResult;
   onRestart: () => void;
@@ -510,7 +528,7 @@ function FailureActions({
     setSharing(true);
 
     try {
-      await shareFailureImage(result, runLevel, chosenPercentages);
+      await shareFailureImage(result, runLevel, chosenPercentages, outcome);
     } finally {
       setSharing(false);
     }
@@ -618,9 +636,15 @@ function RulesModal({
   );
 }
 
-async function shareFailureImage(result: RevealedResult, runLevel: number, chosenPercentages: number[]) {
-  const blob = await renderFailureImage(result, runLevel, chosenPercentages);
+async function shareFailureImage(
+  result: RevealedResult,
+  runLevel: number,
+  chosenPercentages: number[],
+  outcome: TerminalOutcome
+) {
+  const blob = await renderFailureImage(result, runLevel, chosenPercentages, outcome);
   const file = new File([blob], `plebscape-level-${runLevel}.png`, { type: "image/png" });
+  const action = outcome === "escaped" ? "escaped" : "failed";
   const canShareFiles =
     typeof navigator !== "undefined" &&
     "canShare" in navigator &&
@@ -629,7 +653,7 @@ async function shareFailureImage(result: RevealedResult, runLevel: number, chose
   if (canShareFiles && "share" in navigator) {
     await navigator.share({
       title: "PLEBSCAPE.COM",
-      text: `I failed PLEBSCAPE at level ${runLevel}.`,
+      text: `I ${action} PLEBSCAPE at level ${runLevel}.`,
       files: [file]
     });
     return;
@@ -648,7 +672,8 @@ async function shareFailureImage(result: RevealedResult, runLevel: number, chose
 async function renderFailureImage(
   result: RevealedResult,
   runLevel: number,
-  chosenPercentages: number[]
+  chosenPercentages: number[],
+  outcome: TerminalOutcome
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
@@ -666,7 +691,7 @@ async function renderFailureImage(
   context.textBaseline = "middle";
   const score = calculateRunScore({ chosenPercentages, failedLevel: runLevel });
 
-  const ape = await loadImage(apeImageSrc);
+  const ape = await loadImage(outcome === "escaped" ? escapedApeImageSrc : apeImageSrc);
   drawShareScoreHeader(context, ape, runLevel, score.scoreDisplay);
 
   drawText(context, `AVERAGE CHOICE: ${score.averageChoiceDisplay}`, 540, 500, 34, "700");

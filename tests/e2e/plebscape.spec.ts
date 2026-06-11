@@ -126,7 +126,11 @@ async function expectEqualNounFontSizes(page: Page) {
   expect(sizes[0]).toBeCloseTo(sizes[1], 4);
 }
 
-async function expectLockedFailureHero(page: Page) {
+async function expectLockedOutcomeHero(
+  page: Page,
+  expectedTexts: [string, string] = ["YOU", "FAILED!"],
+  expectedImageName = "ape-game.png"
+) {
   const metrics = await page.locator(".failure-slot").evaluate((slot) => {
     const svg = slot.querySelector("svg.failure-hero-mark");
     const image = slot.querySelector("svg.failure-hero-mark image");
@@ -156,6 +160,7 @@ async function expectLockedFailureHero(page: Page) {
       contentLeft: viewBox.x + (contentLeftPx - svgBox.left) * svgUnitsPerPixel,
       contentRight: viewBox.x + (contentRightPx - svgBox.left) * svgUnitsPerPixel,
       contentTop: viewBox.y + (contentTopPx - svgBox.top) * svgUnitsPerPixelY,
+      imageHref: image.getAttribute("href"),
       imageCount: image ? 1 : 0,
       slotBottom: slotBox.bottom,
       slotCenterX: slotBox.left + slotBox.width / 2,
@@ -174,8 +179,9 @@ async function expectLockedFailureHero(page: Page) {
   });
 
   expect(metrics.imageCount).toBe(1);
+  expect(metrics.imageHref).toContain(expectedImageName);
   expect(metrics.textCount).toBe(2);
-  expect(metrics.textValues).toEqual(["YOU", "FAILED!"]);
+  expect(metrics.textValues).toEqual(expectedTexts);
   expect(metrics.aspectRatio).toBeCloseTo(720 / 220, 3);
   expect(metrics.contentTop).toBeGreaterThanOrEqual(metrics.viewBoxTop);
   expect(metrics.contentBottom).toBeLessThanOrEqual(metrics.viewBoxBottom);
@@ -185,6 +191,10 @@ async function expectLockedFailureHero(page: Page) {
   expect(Math.abs(metrics.slotCenterX - metrics.svgCenterX)).toBeLessThanOrEqual(2);
   expect(metrics.svgTop).toBeGreaterThanOrEqual(metrics.slotTop - 1);
   expect(metrics.svgBottom).toBeLessThanOrEqual(metrics.slotBottom + 1);
+}
+
+async function expectLockedFailureHero(page: Page) {
+  await expectLockedOutcomeHero(page, ["YOU", "FAILED!"], "ape-game.png");
 }
 
 async function getButtonBox(page: Page, name: string | RegExp) {
@@ -309,6 +319,136 @@ test("shows failure actions", async ({ page }) => {
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
   await expectNoPageOverflow(page);
+});
+
+test("escapes after answering level 100 with the escaped hero and share image", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+      originalSetTimeout(handler, Math.min(timeout ?? 0, 1), ...args)) as typeof window.setTimeout;
+
+    window.__plebscapeFillTextCalls = [];
+    window.__plebscapeLoadedImages = [];
+    window.__plebscapeDownloadClicked = false;
+
+    const imageSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+    Object.defineProperty(HTMLImageElement.prototype, "src", {
+      configurable: true,
+      get() {
+        return imageSrcDescriptor?.get?.call(this) ?? "";
+      },
+      set(value: string) {
+        window.__plebscapeLoadedImages.push(String(value));
+        imageSrcDescriptor?.set?.call(this, value);
+      }
+    });
+
+    const originalFillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth?: number
+    ) {
+      window.__plebscapeFillTextCalls.push({
+        font: this.font,
+        text: String(text),
+        textAlign: this.textAlign,
+        width: this.measureText(String(text)).width,
+        x,
+        y
+      });
+      return originalFillText.call(this, text, x, y, maxWidth as number);
+    };
+
+    HTMLCanvasElement.prototype.toBlob = function (callback, type) {
+      callback(new Blob(["png"], { type: type ?? "image/png" }));
+    };
+
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => false
+    });
+
+    HTMLAnchorElement.prototype.click = function () {
+      window.__plebscapeDownloadClicked = true;
+    };
+  });
+
+  await page.unroute("**/api/levels/next");
+  await page.unroute("**/api/votes");
+
+  let nextLevel = 1;
+  await page.route("**/api/levels/next", async (route) => {
+    const levelNumber = nextLevel;
+    nextLevel += 1;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated: false,
+        level: {
+          id: `level-${levelNumber}`,
+          nounA: "alpha",
+          nounB: "beta"
+        }
+      })
+    });
+  });
+
+  await page.route("**/api/votes", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as { chosenSide: "a" | "b"; levelId: string };
+    const isFinalVote = body.levelId === "level-100";
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          levelId: body.levelId,
+          nounA: "alpha",
+          nounB: "beta",
+          votesA: isFinalVote ? 45 : 80,
+          votesB: isFinalVote ? 55 : 20,
+          percentA: isFinalVote ? 45 : 80,
+          percentB: isFinalVote ? 55 : 20,
+          chosenSide: body.chosenSide,
+          chosenNoun: body.chosenSide === "a" ? "alpha" : "beta",
+          passed: !isFinalVote
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+
+  for (let levelNumber = 1; levelNumber < 100; levelNumber += 1) {
+    await expect(page.getByText(`Level ${levelNumber}`)).toBeVisible();
+    await page.getByRole("button", { name: "beta" }).click();
+    await expect(page.getByText(`Level ${levelNumber + 1}`)).toBeVisible({ timeout: 4000 });
+  }
+
+  await page.getByRole("button", { name: "beta" }).click();
+  await expect(page.getByRole("heading", { name: "YOU ESCAPED!" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeHidden();
+  await expect(page.getByText("Level 100")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /beta 55%/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
+  await expectLockedOutcomeHero(page, ["YOU", "ESCAPED!"], "ape-escaped.png");
+
+  await page.getByRole("button", { name: "SHARE" }).click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__plebscapeFillTextCalls.map((call) => call.text)))
+    .toContain("LEVEL 100");
+  await expect
+    .poll(async () => page.evaluate(() => window.__plebscapeLoadedImages))
+    .toContainEqual(expect.stringContaining("ape-escaped.png"));
+  const fillTextLabels = await page.evaluate(() => window.__plebscapeFillTextCalls.map((call) => call.text));
+  expect(fillTextLabels).toContain("SCORE 9980");
+  expect(fillTextLabels).toContain("AVERAGE CHOICE: 20%");
+  expect(fillTextLabels).toContain("55%");
+  expect(fillTextLabels).toContain("beta");
+  await expect.poll(async () => page.evaluate(() => window.__plebscapeDownloadClicked)).toBe(true);
 });
 
 test("fits long noun text from each button box on wide screens", async ({ page }) => {
