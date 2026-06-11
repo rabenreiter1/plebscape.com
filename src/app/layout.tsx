@@ -4,7 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "PLEBSCAPE.COM",
-  description: "A minimalist survival game about escaping the mass mind."
+  description: "A minimalist survival game about escaping the mass mind.",
+  icons: {
+    icon: "/ape.png",
+    shortcut: "/ape.png",
+    apple: "/ape.png"
+  }
 };
 
 export const viewport: Viewport = {

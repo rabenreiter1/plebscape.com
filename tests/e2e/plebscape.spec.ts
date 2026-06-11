@@ -55,15 +55,27 @@ test("plays, reveals a pass, and hides percentages before choosing", async ({ pa
   await page.goto("/");
   await expect(page.getByText("60%")).toBeHidden();
   await page.getByRole("button", { name: "noise" }).click();
-  await expect(page.getByRole("heading", { name: "ESCAPED" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ESCAPED" })).toBeHidden();
   await expect(page.getByText("60%")).toBeVisible();
   await expect(page.getByText("40%")).toBeVisible();
+  await expect(page.getByRole("button", { name: /noise 40%/ })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
 });
 
 test("shows failure actions", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "tree" }).click();
   await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Ape mascot" })).toBeVisible();
+  await expect(page.getByText("Level 1")).toHaveCount(1);
+  await expect(page.getByText("PLEBSCAPE.COM")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /tree 80%/ })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await expect(page.getByRole("button", { name: /noise 20%/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
 });

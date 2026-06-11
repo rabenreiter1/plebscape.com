@@ -122,6 +122,10 @@ h1 {
 }
 
 .noun-button {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
   min-height: clamp(172px, 28svh, 320px);
   border: 3px solid var(--ink);
   border-radius: 0;
@@ -135,13 +139,37 @@ h1 {
   transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
-.noun-button:hover {
+.noun-button:hover:not(:disabled) {
   background: var(--ink);
   color: var(--paper);
 }
 
-.noun-button:active {
+.noun-button:active:not(:disabled) {
   transform: translateY(1px);
+}
+
+.noun-button:disabled {
+  cursor: default;
+}
+
+.noun-button.is-chosen {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.noun-button.has-result {
+  min-height: clamp(190px, 28svh, 320px);
+}
+
+.noun-word,
+.noun-percent {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.noun-percent {
+  font-size: clamp(1.4rem, 1rem + 2vw, 3rem);
+  line-height: 1;
 }
 
 .status-text {
@@ -151,8 +179,6 @@ h1 {
   font-weight: 800;
 }
 
-.result-panel,
-.failure-panel,
 .stack {
   display: grid;
   justify-items: center;
@@ -160,51 +186,29 @@ h1 {
   width: min(100%, 600px);
 }
 
-.result-panel h2,
-.failure-panel h2,
 .stack h2 {
   font-size: clamp(2.25rem, 1.5rem + 5vw, 5.5rem);
   font-weight: 900;
   line-height: 0.95;
 }
 
-.site-repeat,
-.failed-level {
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.failed-level {
-  color: var(--muted);
-}
-
-.result-list {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  margin: 0;
-}
-
-.result-list > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
+.failure-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 16px;
-  border-bottom: 2px solid var(--line);
-  padding: 12px 0;
-  text-align: left;
 }
 
-.result-list dt,
-.result-list dd {
-  margin: 0;
-  font-size: clamp(1.65rem, 1.15rem + 2.5vw, 3.25rem);
+.failure-ape {
+  width: clamp(72px, 14vw, 132px);
+  height: clamp(72px, 14vw, 132px);
+  object-fit: contain;
+}
+
+.failure-banner h2 {
+  font-size: clamp(2.3rem, 1.5rem + 5vw, 5.6rem);
   font-weight: 900;
-  overflow-wrap: anywhere;
-}
-
-.chosen-row {
-  color: var(--muted);
+  line-height: 0.95;
 }
 
 .action-row {
@@ -293,10 +297,8 @@ h1 {
     min-height: 28svh;
   }
 
-  .result-list > div {
-    grid-template-columns: 1fr;
-    gap: 4px;
-    text-align: center;
+  .failure-banner {
+    gap: 10px;
   }
 }
 

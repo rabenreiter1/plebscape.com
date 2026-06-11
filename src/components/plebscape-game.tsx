@@ -1,17 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { displayPercent, type LevelPublic, type RevealedResult, type Side } from "@/lib/game";
 
-type GameState = "loading" | "choosing" | "revealed" | "failed" | "exhausted" | "error";
+type GameState = "loading" | "choosing" | "submitting" | "revealed" | "failed" | "exhausted" | "error";
 type DisplayChoice = {
   side: Side;
   noun: string;
 };
 
 const slogan = "There is only one way to escape the pleb.";
-const revealDelayMs = 1400;
+const apeImageSrc = "/ape.png";
+const revealDelayMs = 2000;
 
 export function PlebscapeGame() {
   const [state, setState] = useState<GameState>("loading");
@@ -20,6 +21,7 @@ export function PlebscapeGame() {
   const [seenLevelIds, setSeenLevelIds] = useState<string[]>([]);
   const [runLevel, setRunLevel] = useState(1);
   const [result, setResult] = useState<RevealedResult | null>(null);
+  const [chosenSide, setChosenSide] = useState<Side | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
@@ -28,6 +30,7 @@ export function PlebscapeGame() {
     async (nextSeenLevelIds = seenLevelIds) => {
       setState("loading");
       setResult(null);
+      setChosenSide(null);
       setError(null);
 
       try {
@@ -86,7 +89,8 @@ export function PlebscapeGame() {
       return;
     }
 
-    setState("loading");
+    setChosenSide(side);
+    setState("submitting");
     setError(null);
 
     try {
@@ -103,6 +107,7 @@ export function PlebscapeGame() {
       const data = (await response.json()) as { result: RevealedResult };
       const nextResult = data.result;
       setResult(nextResult);
+      setChosenSide(nextResult.chosenSide);
 
       if (!nextResult.passed) {
         setState("failed");
@@ -126,19 +131,11 @@ export function PlebscapeGame() {
   const restart = () => {
     setSeenLevelIds([]);
     setRunLevel(1);
+    setChosenSide(null);
     void loadNextLevel([]);
   };
 
-  const resultRows = useMemo(() => {
-    if (!result) {
-      return [];
-    }
-
-    return [
-      { side: "a" as Side, noun: result.nounA, percent: result.percentA },
-      { side: "b" as Side, noun: result.nounB, percent: result.percentB }
-    ];
-  }, [result]);
+  const canShowBoard = choices.length > 0 && state !== "loading" && state !== "error" && state !== "exhausted";
 
   return (
     <main className="game-shell">
@@ -159,37 +156,29 @@ export function PlebscapeGame() {
       </header>
 
       <section className="game-stage" aria-live="polite">
-        <p className="level-label">Level {runLevel}</p>
-
-        {state === "choosing" && (
-          <div className="choice-grid" aria-label="Choose one noun">
-            {choices.map((choice) => (
-              <button
-                className="noun-button"
-                key={choice.side}
-                type="button"
-                onClick={() => void choose(choice.side)}
-              >
-                {choice.noun}
-              </button>
-            ))}
+        {state === "failed" && (
+          <div className="failure-banner">
+            <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
+            <h2>YOU FAILED!</h2>
           </div>
         )}
 
+        {canShowBoard && (
+          <>
+            <p className="level-label">Level {runLevel}</p>
+            <ChoiceGrid
+              choices={choices}
+              chosenSide={chosenSide}
+              disabled={state !== "choosing"}
+              onChoose={choose}
+              result={result}
+            />
+          </>
+        )}
+
+        {state === "failed" && result && <FailureActions result={result} runLevel={runLevel} onRestart={restart} />}
+
         {state === "loading" && <p className="status-text">...</p>}
-
-        {state === "revealed" && result && (
-          <ResultPanel heading="ESCAPED" resultRows={resultRows} chosenSide={result.chosenSide} />
-        )}
-
-        {state === "failed" && result && (
-          <FailurePanel
-            runLevel={runLevel}
-            result={result}
-            resultRows={resultRows}
-            onRestart={restart}
-          />
-        )}
 
         {state === "exhausted" && <ExhaustedPanel onRestart={restart} />}
 
@@ -208,6 +197,48 @@ export function PlebscapeGame() {
   );
 }
 
+function ChoiceGrid({
+  choices,
+  chosenSide,
+  disabled,
+  onChoose,
+  result
+}: {
+  choices: DisplayChoice[];
+  chosenSide: Side | null;
+  disabled: boolean;
+  onChoose: (side: Side) => Promise<void>;
+  result: RevealedResult | null;
+}) {
+  return (
+    <div className="choice-grid" aria-label="Choose one noun">
+      {choices.map((choice) => {
+        const percent =
+          result && choice.side === "a"
+            ? result.percentA
+            : result && choice.side === "b"
+              ? result.percentB
+              : null;
+        const isChosen = choice.side === chosenSide;
+
+        return (
+          <button
+            aria-pressed={isChosen}
+            className={`noun-button${isChosen ? " is-chosen" : ""}${percent !== null ? " has-result" : ""}`}
+            disabled={disabled}
+            key={choice.side}
+            type="button"
+            onClick={() => void onChoose(choice.side)}
+          >
+            <span className="noun-word">{choice.noun}</span>
+            {percent !== null && <span className="noun-percent">{displayPercent(percent)}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
   return (
     <div className="stack">
@@ -220,32 +251,13 @@ function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
   );
 }
 
-function ResultPanel({
-  heading,
-  resultRows,
-  chosenSide
-}: {
-  heading: string;
-  resultRows: Array<{ side: Side; noun: string; percent: number }>;
-  chosenSide: Side;
-}) {
-  return (
-    <div className="result-panel">
-      <h2>{heading}</h2>
-      <ResultRows resultRows={resultRows} chosenSide={chosenSide} />
-    </div>
-  );
-}
-
-function FailurePanel({
+function FailureActions({
   runLevel,
   result,
-  resultRows,
   onRestart
 }: {
   runLevel: number;
   result: RevealedResult;
-  resultRows: Array<{ side: Side; noun: string; percent: number }>;
   onRestart: () => void;
 }) {
   const [sharing, setSharing] = useState(false);
@@ -261,39 +273,14 @@ function FailurePanel({
   };
 
   return (
-    <div className="failure-panel">
-      <p className="site-repeat">PLEBSCAPE.COM</p>
-      <h2>YOU FAILED!</h2>
-      <p className="failed-level">Level {runLevel}</p>
-      <ResultRows resultRows={resultRows} chosenSide={result.chosenSide} />
-      <div className="action-row">
-        <button className="text-button" type="button" onClick={() => void share()} disabled={sharing}>
-          {sharing ? "SHARING..." : "SHARE"}
-        </button>
-        <button className="text-button" type="button" onClick={onRestart}>
-          START AGAIN
-        </button>
-      </div>
+    <div className="action-row">
+      <button className="text-button" type="button" onClick={() => void share()} disabled={sharing}>
+        {sharing ? "SHARING..." : "SHARE"}
+      </button>
+      <button className="text-button" type="button" onClick={onRestart}>
+        START AGAIN
+      </button>
     </div>
-  );
-}
-
-function ResultRows({
-  resultRows,
-  chosenSide
-}: {
-  resultRows: Array<{ side: Side; noun: string; percent: number }>;
-  chosenSide: Side;
-}) {
-  return (
-    <dl className="result-list">
-      {resultRows.map((row) => (
-        <div className={row.side === chosenSide ? "chosen-row" : undefined} key={row.side}>
-          <dt>{row.noun}</dt>
-          <dd>{displayPercent(row.percent)}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
@@ -431,14 +418,28 @@ async function renderFailureImage(result: RevealedResult, runLevel: number): Pro
   context.textAlign = "center";
   context.textBaseline = "middle";
 
-  drawText(context, "PLEBSCAPE.COM", 540, 150, 54, "700");
-  drawText(context, "YOU FAILED", 540, 315, 92, "900");
-  drawText(context, `LEVEL ${runLevel}`, 540, 455, 64, "800");
-  drawText(context, result.nounA, 540, 635, 68, "700");
-  drawText(context, displayPercent(result.percentA), 540, 710, 54, "500");
-  drawText(context, result.nounB, 540, 820, 68, "700");
-  drawText(context, displayPercent(result.percentB), 540, 895, 54, "500");
-  drawText(context, slogan, 540, 1010, 32, "700");
+  const ape = await loadImage(apeImageSrc);
+  context.drawImage(ape, 310, 80, 460, 460);
+
+  drawText(context, `LEVEL ${runLevel}`, 540, 610, 82, "900");
+  drawShareButton(context, {
+    noun: result.nounA,
+    percent: displayPercent(result.percentA),
+    pressed: result.chosenSide === "a",
+    x: 85,
+    y: 700
+  });
+  drawShareButton(context, {
+    noun: result.nounB,
+    percent: displayPercent(result.percentB),
+    pressed: result.chosenSide === "b",
+    x: 555,
+    y: 700
+  });
+  context.fillStyle = "#0b0b0b";
+  drawText(context, "PLEBSCAPE.COM", 540, 960, 48, "900");
+  context.fillStyle = "#68645b";
+  drawText(context, slogan, 540, 1010, 30, "700");
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -448,6 +449,38 @@ async function renderFailureImage(result: RevealedResult, runLevel: number): Pro
         reject(new Error("Could not render share image."));
       }
     }, "image/png");
+  });
+}
+
+function drawShareButton(
+  context: CanvasRenderingContext2D,
+  {
+    noun,
+    percent,
+    pressed,
+    x,
+    y
+  }: { noun: string; percent: string; pressed: boolean; x: number; y: number }
+) {
+  const width = 440;
+  const height = 180;
+
+  context.fillStyle = pressed ? "#0b0b0b" : "#f4f1e8";
+  context.fillRect(x, y, width, height);
+  context.lineWidth = 6;
+  context.strokeStyle = "#0b0b0b";
+  context.strokeRect(x, y, width, height);
+  context.fillStyle = pressed ? "#f4f1e8" : "#0b0b0b";
+  drawText(context, noun, x + width / 2, y + 72, 54, "900");
+  drawText(context, percent, x + width / 2, y + 130, 40, "700");
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load ape image."));
+    image.src = src;
   });
 }
 
