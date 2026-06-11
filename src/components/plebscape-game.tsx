@@ -669,25 +669,25 @@ async function renderFailureImage(
   const ape = await loadImage(apeImageSrc);
   drawShareScoreHeader(context, ape, runLevel, score.scoreDisplay);
 
-  drawText(context, `AVERAGE CHOICE: ${score.averageChoiceDisplay}`, 540, 650, 34, "700");
+  drawText(context, `AVERAGE CHOICE: ${score.averageChoiceDisplay}`, 540, 500, 34, "700");
   drawShareButton(context, {
     noun: result.nounA,
     percent: displayPercent(result.percentA),
     pressed: result.chosenSide === "a",
     x: 85,
-    y: 710
+    y: 575
   });
   drawShareButton(context, {
     noun: result.nounB,
     percent: displayPercent(result.percentB),
     pressed: result.chosenSide === "b",
     x: 555,
-    y: 710
+    y: 575
   });
   context.fillStyle = "#0b0b0b";
-  drawText(context, "PLEBSCAPE.COM", 540, 950, 48, "900");
+  drawText(context, "PLEBSCAPE.COM", 540, 910, 48, "900");
   context.fillStyle = "#68645b";
-  drawText(context, slogan, 540, 1005, 30, "700");
+  drawText(context, slogan, 540, 965, 30, "700");
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -706,38 +706,39 @@ function drawShareScoreHeader(
   runLevel: number,
   scoreDisplay: number
 ) {
-  const apeSize = 320;
-  const gap = 36;
-  const maxGroupWidth = 900;
+  const internalApeSize = 300;
+  const internalTextX = 340;
+  const internalApeY = 5;
+  const internalGroupY = 110;
+  const maxRenderedWidth = 900;
   const levelText = `LEVEL ${runLevel}`;
   const scoreText = `SCORE ${scoreDisplay}`;
   const baseLevelSize = 78;
   const baseScoreSize = 62;
 
-  const measureTextBlock = (scale: number) => {
-    context.font = `900 ${baseLevelSize * scale}px Arial, Helvetica, sans-serif`;
-    const levelWidth = context.measureText(levelText).width;
-    context.font = `900 ${baseScoreSize * scale}px Arial, Helvetica, sans-serif`;
-    const scoreWidth = context.measureText(scoreText).width;
-    return Math.max(levelWidth, scoreWidth);
-  };
+  context.font = `900 ${baseLevelSize}px Arial, Helvetica, sans-serif`;
+  const levelWidth = context.measureText(levelText).width;
+  context.font = `900 ${baseScoreSize}px Arial, Helvetica, sans-serif`;
+  const scoreWidth = context.measureText(scoreText).width;
+  const textBlockWidth = Math.max(levelWidth, scoreWidth);
+  const internalContentWidth = Math.max(internalApeSize, internalTextX + textBlockWidth);
+  const scale = internalContentWidth > maxRenderedWidth ? maxRenderedWidth / internalContentWidth : 1;
+  const groupX = (1080 - internalContentWidth * scale) / 2;
+  const scaled = (value: number) => value * scale;
+  const drawX = (value: number) => groupX + scaled(value);
+  const drawY = (value: number) => internalGroupY + scaled(value);
 
-  const baseTextBlockWidth = measureTextBlock(1);
-  const baseGroupWidth = apeSize + gap + baseTextBlockWidth;
-  const scale = baseGroupWidth > maxGroupWidth ? maxGroupWidth / baseGroupWidth : 1;
-  const textBlockWidth = measureTextBlock(scale);
-  const groupWidth = apeSize + gap + textBlockWidth;
-  const groupX = (1080 - groupWidth) / 2;
-  const textX = groupX + apeSize + gap;
-  const apeY = 90;
-  const apeCenterY = apeY + apeSize / 2;
-  const lineOffset = 38 * scale;
-
-  context.drawImage(ape, groupX, apeY, apeSize, apeSize);
+  context.drawImage(
+    ape,
+    drawX(0),
+    drawY(internalApeY),
+    scaled(internalApeSize),
+    scaled(internalApeSize)
+  );
   context.textAlign = "left";
   context.fillStyle = "#0b0b0b";
-  drawText(context, levelText, textX, apeCenterY - lineOffset, baseLevelSize * scale, "900");
-  drawText(context, scoreText, textX, apeCenterY + lineOffset, baseScoreSize * scale, "900");
+  drawText(context, levelText, drawX(internalTextX), drawY(128), scaled(baseLevelSize), "900");
+  drawText(context, scoreText, drawX(internalTextX), drawY(206), scaled(baseScoreSize), "900");
   context.textAlign = "center";
 }
 

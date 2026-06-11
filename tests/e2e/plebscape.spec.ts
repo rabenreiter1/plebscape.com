@@ -534,15 +534,31 @@ test("draws share-only score from exact post-vote run percentages", async ({ pag
   expect(sloganCall).toBeDefined();
 
   const textBlockWidth = Math.max(levelCall!.width, scoreCall!.width);
-  const headerGroupCenter = levelCall!.x - 320 - 36 + (320 + 36 + textBlockWidth) / 2;
+  const levelFontSize = Number(levelCall!.font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? "78");
+  const headerScale = levelFontSize / 78;
+  const headerGroupX = levelCall!.x - 340 * headerScale;
+  const headerGroupWidth = Math.max(300 * headerScale, 340 * headerScale + textBlockWidth);
+  const headerGroupCenter = headerGroupX + headerGroupWidth / 2;
+  const leftPercentCall = fillTextCalls.find((call) => call.text === "65%");
+  const rightPercentCall = fillTextCalls.find((call) => call.text === "35%");
+
+  expect(leftPercentCall).toBeDefined();
+  expect(rightPercentCall).toBeDefined();
 
   expect(levelCall!.textAlign).toBe("left");
   expect(scoreCall!.textAlign).toBe("left");
   expect(levelCall!.x).toBe(scoreCall!.x);
   expect(Math.abs(headerGroupCenter - 540)).toBeLessThanOrEqual(1);
   expect(averageCall!.x).toBe(540);
+  expect(averageCall!.y).toBe(500);
+  expect(Math.abs((leftPercentCall!.x + rightPercentCall!.x) / 2 - 540)).toBeLessThanOrEqual(1);
+  expect(leftPercentCall!.y - averageCall!.y).toBe(120);
+  expect(averageCall!.y - scoreCall!.y).toBeGreaterThan(120);
+  expect(averageCall!.y - scoreCall!.y).toBeLessThan(220);
   expect(domainCall!.x).toBe(540);
+  expect(domainCall!.y).toBe(910);
   expect(sloganCall!.x).toBe(540);
+  expect(sloganCall!.y).toBe(965);
   await expect.poll(async () => page.evaluate(() => window.__plebscapeDownloadClicked)).toBe(true);
 });
 
