@@ -12,6 +12,16 @@ type Check = {
   message?: string;
 };
 
+type DatabaseUrlInfo = {
+  protocol?: string;
+  host?: string;
+  port?: string;
+  database?: string;
+  username?: string;
+  sslmode?: string | null;
+  parseError?: string;
+};
+
 export async function GET() {
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
@@ -57,8 +67,32 @@ export async function GET() {
   return NextResponse.json(
     {
       status: healthy ? "healthy" : "unhealthy",
-      checks
+      checks,
+      databaseUrl: describeDatabaseUrl(process.env.DATABASE_URL)
     },
     { status: healthy ? 200 : 503 }
   );
+}
+
+function describeDatabaseUrl(value: string | undefined): DatabaseUrlInfo | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return {
+      protocol: url.protocol,
+      host: url.hostname,
+      port: url.port,
+      database: url.pathname.replace(/^\//, ""),
+      username: url.username,
+      sslmode: url.searchParams.get("sslmode")
+    };
+  } catch (error) {
+    return {
+      parseError: error instanceof Error ? error.message : "Could not parse DATABASE_URL."
+    };
+  }
 }
