@@ -236,7 +236,7 @@ h1 {
 
 .failure-hero-mark {
   display: block;
-  width: clamp(15rem, 56vw, 42rem);
+  width: clamp(15rem, 48vw, 29rem);
   max-width: 100%;
   height: auto;
   color: var(--ink);
@@ -349,7 +349,7 @@ h1 {
   }
 
   .failure-hero-mark {
-    width: clamp(14rem, 75vw, 25rem);
+    width: clamp(13rem, 70vw, 18rem);
   }
 
   .text-button {

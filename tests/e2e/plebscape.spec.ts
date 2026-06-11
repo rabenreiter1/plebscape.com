@@ -118,27 +118,48 @@ async function expectLockedFailureHero(page: Page) {
     const contentBoxes = [image, ...texts].map((node) => node.getBoundingClientRect());
     const contentLeftPx = Math.min(...contentBoxes.map((box) => box.left));
     const contentRightPx = Math.max(...contentBoxes.map((box) => box.right));
+    const contentTopPx = Math.min(...contentBoxes.map((box) => box.top));
+    const contentBottomPx = Math.max(...contentBoxes.map((box) => box.bottom));
     const contentCenterPx = contentLeftPx + (contentRightPx - contentLeftPx) / 2;
     const svgUnitsPerPixel = viewBox.width / svgBox.width;
+    const svgUnitsPerPixelY = viewBox.height / svgBox.height;
 
     return {
       aspectRatio: svgBox.width / svgBox.height,
+      contentBottom: viewBox.y + (contentBottomPx - svgBox.top) * svgUnitsPerPixelY,
       contentCenterX: viewBox.x + (contentCenterPx - svgBox.left) * svgUnitsPerPixel,
+      contentLeft: viewBox.x + (contentLeftPx - svgBox.left) * svgUnitsPerPixel,
+      contentRight: viewBox.x + (contentRightPx - svgBox.left) * svgUnitsPerPixel,
+      contentTop: viewBox.y + (contentTopPx - svgBox.top) * svgUnitsPerPixelY,
       imageCount: image ? 1 : 0,
+      slotBottom: slotBox.bottom,
       slotCenterX: slotBox.left + slotBox.width / 2,
+      slotTop: slotBox.top,
       svgCenterX: svgBox.left + svgBox.width / 2,
+      svgBottom: svgBox.bottom,
+      svgTop: svgBox.top,
       textCount: texts.length,
       textValues: texts.map((text) => text.textContent),
-      viewBoxCenterX: viewBox.x + viewBox.width / 2
+      viewBoxBottom: viewBox.y + viewBox.height,
+      viewBoxCenterX: viewBox.x + viewBox.width / 2,
+      viewBoxLeft: viewBox.x,
+      viewBoxRight: viewBox.x + viewBox.width,
+      viewBoxTop: viewBox.y
     };
   });
 
   expect(metrics.imageCount).toBe(1);
   expect(metrics.textCount).toBe(2);
   expect(metrics.textValues).toEqual(["YOU", "FAILED!"]);
-  expect(metrics.aspectRatio).toBeCloseTo(4, 1);
+  expect(metrics.aspectRatio).toBeCloseTo(720 / 220, 3);
+  expect(metrics.contentTop).toBeGreaterThanOrEqual(metrics.viewBoxTop);
+  expect(metrics.contentBottom).toBeLessThanOrEqual(metrics.viewBoxBottom);
+  expect(metrics.contentLeft).toBeGreaterThanOrEqual(metrics.viewBoxLeft);
+  expect(metrics.contentRight).toBeLessThanOrEqual(metrics.viewBoxRight);
   expect(Math.abs(metrics.contentCenterX - metrics.viewBoxCenterX)).toBeLessThanOrEqual(2);
   expect(Math.abs(metrics.slotCenterX - metrics.svgCenterX)).toBeLessThanOrEqual(2);
+  expect(metrics.svgTop).toBeGreaterThanOrEqual(metrics.slotTop - 1);
+  expect(metrics.svgBottom).toBeLessThanOrEqual(metrics.slotBottom + 1);
 }
 
 async function getButtonBox(page: Page, name: string | RegExp) {

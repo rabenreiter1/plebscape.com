@@ -218,9 +218,9 @@ function FailureHero() {
         className="failure-hero-mark"
         focusable="false"
         role="img"
-        viewBox="0 0 720 180"
+        viewBox="0 0 720 220"
       >
-        <g transform="translate(95 0)">
+        <g transform="translate(95 22)">
           <image href={apeImageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
           <text
             x="182"
