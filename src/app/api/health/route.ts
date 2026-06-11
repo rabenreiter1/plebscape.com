@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { ensureUsedNounsSchema } from "@/db/ensure-schema";
 import { levels, usedNouns, votes } from "@/db/schema";
-import { validateNounBank } from "@/lib/nouns";
+import { validateLevelPairs } from "@/lib/level-pairs";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +26,10 @@ type DatabaseUrlInfo = {
 
 export async function GET() {
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-  const nounBank = validateNounBank();
+  const levelPairs = validateLevelPairs();
   const checks: Record<string, Check> = {
     databaseUrl: { ok: hasDatabaseUrl },
-    nounBank
+    levelPairs
   };
 
   if (!hasDatabaseUrl) {

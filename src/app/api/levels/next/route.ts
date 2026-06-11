@@ -4,9 +4,9 @@ import { z } from "zod";
 
 import { getDb } from "@/db/client";
 import { ensureUsedNounsSchema } from "@/db/ensure-schema";
-import { levels, usedNouns } from "@/db/schema";
+import { levels } from "@/db/schema";
 import { getNextDevLevel, shouldUseDevStore } from "@/lib/dev-store";
-import { selectUnusedNounPair } from "@/lib/nouns";
+import { selectUncreatedLevelPair } from "@/lib/level-pairs";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +14,6 @@ export const dynamic = "force-dynamic";
 const requestSchema = z.object({
   seenLevelIds: z.array(z.string().uuid()).default([])
 });
-
-const freshLevelRetries = 8;
 
 export async function POST(request: Request) {
   try {
@@ -70,56 +68,29 @@ export async function POST(request: Request) {
 async function createFreshLevel() {
   const db = getDb();
 
-  for (let attempt = 0; attempt < freshLevelRetries; attempt += 1) {
-    try {
-      return await db.transaction(async (tx) => {
-        const reserved = await tx.select({ noun: usedNouns.noun }).from(usedNouns);
-        const pair = selectUnusedNounPair({
-          usedNouns: reserved.map((row) => row.noun)
-        });
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`lock table ${levels} in exclusive mode`);
+    const existingPairs = await tx.select({ nounA: levels.nounA, nounB: levels.nounB }).from(levels);
+    const pair = selectUncreatedLevelPair({ existingPairs });
 
-        if (!pair) {
-          return null;
-        }
-
-        const [created] = await tx
-          .insert(levels)
-          .values({
-            nounA: pair.nounA,
-            nounB: pair.nounB,
-            votesA: 0,
-            votesB: 0
-          })
-          .returning({
-            id: levels.id,
-            nounA: levels.nounA,
-            nounB: levels.nounB
-          });
-
-        await tx.insert(usedNouns).values([
-          { noun: pair.nounA, levelId: created.id },
-          { noun: pair.nounB, levelId: created.id }
-        ]);
-
-        return created;
-      });
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        continue;
-      }
-
-      throw error;
+    if (!pair) {
+      return null;
     }
-  }
 
-  throw new Error("Could not reserve unused nouns after multiple attempts.");
-}
+    const [created] = await tx
+      .insert(levels)
+      .values({
+        nounA: pair.nounA,
+        nounB: pair.nounB,
+        votesA: 0,
+        votesB: 0
+      })
+      .returning({
+        id: levels.id,
+        nounA: levels.nounA,
+        nounB: levels.nounB
+      });
 
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "23505"
-  );
+    return created;
+  });
 }

@@ -2,7 +2,7 @@
 
 Minimalist survival game about escaping the mass mind.
 
-The player sees two random nouns, chooses one, and survives only if the chosen noun remains a strict minority after the player's own vote is counted. Ties fail.
+The player sees two words, chooses one, and survives only if the chosen word remains a strict minority after the player's own vote is counted. Ties fail.
 
 ## Stack
 
@@ -10,7 +10,7 @@ The player sees two random nouns, chooses one, and survives only if the chosen n
 - Vercel deployment target
 - Vercel Postgres or any Postgres database
 - Drizzle ORM
-- Checked-in finite local noun bank
+- Checked-in finite 100-pair level pool
 - Vitest and Playwright
 
 ## Local Setup
@@ -66,7 +66,9 @@ DATABASE_URL=...
 ```
 
 No OpenAI key or paid LLM provider is required. New levels are created from a
-checked-in 2,000-word real noun bank.
+checked-in pool of 100 authored word pairs. Existing voted levels are still
+selected randomly first; a fresh authored pair is created only when no eligible
+unseen voted level exists for the current run.
 
 Create/update the production tables once with the production `DATABASE_URL`. The
 app also performs the `used_nouns` creation/backfill idempotently at runtime, so
@@ -77,8 +79,8 @@ npm.cmd run db:push
 npm.cmd run db:backfill-nouns
 ```
 
-The `real-nouns-2000-v1` world version resets existing `levels`, `votes`, and
-`used_nouns` once so earlier synthetic compound levels are removed from
+The `fixed-pairs-100-v1` world version resets existing `levels`, `votes`, and
+`used_nouns` once so earlier random noun-bank levels are removed from
 production.
 
 After deployment, verify the server routes:

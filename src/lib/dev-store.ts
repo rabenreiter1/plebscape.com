@@ -1,5 +1,5 @@
 import { calculateVoteOutcome, type LevelPublic, type RevealedResult, type Side } from "./game";
-import { nounBank } from "./noun-bank";
+import { selectUncreatedLevelPair } from "./level-pairs";
 
 type DevLevel = LevelPublic & {
   votesA: number;
@@ -37,20 +37,16 @@ export function getNextDevLevel(
     return { level: publicLevel(level), generated: false };
   }
 
-  const index = store.plebscapeDevIndex ?? 0;
-  const nounIndex = index * 2;
+  const pair = selectUncreatedLevelPair({ existingPairs: existing });
 
-  if (nounIndex + 1 >= nounBank.length) {
+  if (!pair) {
     return { exhausted: true };
   }
 
-  const pair = [nounBank[nounIndex], nounBank[nounIndex + 1]] as const;
-  store.plebscapeDevIndex = index + 1;
-
   const level: DevLevel = {
     id: crypto.randomUUID(),
-    nounA: pair[0],
-    nounB: pair[1],
+    nounA: pair.nounA,
+    nounB: pair.nounB,
     votesA: 0,
     votesB: 0
   };
