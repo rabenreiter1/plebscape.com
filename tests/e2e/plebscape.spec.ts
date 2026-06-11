@@ -281,10 +281,14 @@ test("plays, reveals a pass, and hides percentages before choosing", async ({ pa
 test("shows failure actions", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
+  await expect(page.getByText(/SCORE \d+/)).toBeHidden();
+  await expect(page.getByText(/AVERAGE CHOICE:/)).toBeHidden();
   await expectNounCentered(page, "handkerchief");
   const beforeBox = await getButtonBox(page, "handkerchief");
   await page.getByRole("button", { name: "handkerchief" }).click();
   await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  await expect(page.getByText(/SCORE \d+/)).toBeHidden();
+  await expect(page.getByText(/AVERAGE CHOICE:/)).toBeHidden();
   await expect(page.locator(".failure-hero-mark")).toBeVisible();
   await expectLockedFailureHero(page);
   await expect(page.getByText("Level 1")).toHaveCount(1);
@@ -373,6 +377,141 @@ test("positions revealed percentages above nouns in the top band", async ({ page
     await expectPercentAboveNounCenteredInTopBand(page, "jigsaw", "41%");
     await expectNoPageOverflow(page);
   }
+});
+
+test("draws share-only score from exact post-vote run percentages", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__plebscapeFillTextCalls = [];
+    window.__plebscapeDownloadClicked = false;
+
+    const originalFillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth?: number
+    ) {
+      window.__plebscapeFillTextCalls.push(String(text));
+      return originalFillText.call(this, text, x, y, maxWidth as number);
+    };
+
+    HTMLCanvasElement.prototype.toBlob = function (callback, type) {
+      callback(new Blob(["png"], { type: type ?? "image/png" }));
+    };
+
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => false
+    });
+
+    HTMLAnchorElement.prototype.click = function () {
+      window.__plebscapeDownloadClicked = true;
+    };
+  });
+
+  await page.unroute("**/api/levels/next");
+  await page.unroute("**/api/votes");
+
+  const levels = [
+    {
+      id: "33333333-3333-4333-8333-333333333331",
+      nounA: "stone",
+      nounB: "pebble"
+    },
+    {
+      id: "33333333-3333-4333-8333-333333333332",
+      nounA: "branch",
+      nounB: "twig"
+    },
+    {
+      id: "33333333-3333-4333-8333-333333333333",
+      nounA: "bagel",
+      nounB: "jigsaw"
+    }
+  ];
+  let levelIndex = 0;
+
+  await page.route("**/api/levels/next", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated: false,
+        level: levels[Math.min(levelIndex, levels.length - 1)]
+      })
+    });
+    levelIndex += 1;
+  });
+
+  await page.route("**/api/votes", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as { chosenSide: "a" | "b"; levelId: string };
+    const results = {
+      [levels[0].id]: {
+        chosenNoun: "pebble",
+        nounA: "stone",
+        nounB: "pebble",
+        passed: true,
+        percentA: 79,
+        percentB: 21,
+        votesA: 79,
+        votesB: 21
+      },
+      [levels[1].id]: {
+        chosenNoun: "twig",
+        nounA: "branch",
+        nounB: "twig",
+        passed: true,
+        percentA: 68,
+        percentB: 32,
+        votesA: 68,
+        votesB: 32
+      },
+      [levels[2].id]: {
+        chosenNoun: "bagel",
+        nounA: "bagel",
+        nounB: "jigsaw",
+        passed: false,
+        percentA: 65,
+        percentB: 35,
+        votesA: 65,
+        votesB: 35
+      }
+    }[body.levelId];
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          ...results,
+          chosenSide: body.chosenSide,
+          levelId: body.levelId
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "pebble" }).click();
+  await expect(page.getByRole("button", { name: "twig" })).toBeVisible({ timeout: 4000 });
+  await page.getByRole("button", { name: "twig" }).click();
+  await expect(page.getByRole("button", { name: "bagel" })).toBeVisible({ timeout: 4000 });
+  await page.getByRole("button", { name: "bagel" }).click();
+
+  await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  await expect(page.getByText(/SCORE \d+/)).toBeHidden();
+  await expect(page.getByText(/AVERAGE CHOICE:/)).toBeHidden();
+  await page.getByRole("button", { name: "SHARE" }).click();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__plebscapeFillTextCalls))
+    .toContain("SCORE 261");
+  const fillTextCalls = await page.evaluate(() => window.__plebscapeFillTextCalls);
+  expect(fillTextCalls).toContain("LEVEL 3");
+  expect(fillTextCalls).toContain("AVERAGE CHOICE: 39%");
+  expect(fillTextCalls).toContain("65%");
+  expect(fillTextCalls).toContain("35%");
+  expect(fillTextCalls).toContain("bagel");
+  expect(fillTextCalls).toContain("jigsaw");
+  await expect.poll(async () => page.evaluate(() => window.__plebscapeDownloadClicked)).toBe(true);
 });
 
 test("keeps the failure hero as one scalable svg mark", async ({ page }) => {

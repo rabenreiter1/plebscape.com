@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
-import { displayPercent, type LevelPublic, type RevealedResult, type Side } from "@/lib/game";
+import {
+  calculateRunScore,
+  displayPercent,
+  getChosenPercentage,
+  type LevelPublic,
+  type RevealedResult,
+  type Side
+} from "@/lib/game";
 
 type GameState = "loading" | "choosing" | "submitting" | "revealed" | "failed" | "exhausted" | "error";
 type DisplayChoice = {
@@ -38,6 +45,7 @@ export function PlebscapeGame() {
   const [seenLevelIds, setSeenLevelIds] = useState<string[]>([]);
   const [runLevel, setRunLevel] = useState(1);
   const [result, setResult] = useState<RevealedResult | null>(null);
+  const [chosenPercentages, setChosenPercentages] = useState<number[]>([]);
   const [chosenSide, setChosenSide] = useState<Side | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -123,8 +131,10 @@ export function PlebscapeGame() {
 
       const data = (await response.json()) as { result: RevealedResult };
       const nextResult = data.result;
+      const nextChosenPercentages = [...chosenPercentages, getChosenPercentage(nextResult)];
       setResult(nextResult);
       setChosenSide(nextResult.chosenSide);
+      setChosenPercentages(nextChosenPercentages);
 
       if (!nextResult.passed) {
         setState("failed");
@@ -149,6 +159,7 @@ export function PlebscapeGame() {
     setSeenLevelIds([]);
     setRunLevel(1);
     setChosenSide(null);
+    setChosenPercentages([]);
     void loadNextLevel([]);
   };
 
@@ -193,7 +204,12 @@ export function PlebscapeGame() {
 
             <div className="action-slot">
               {state === "failed" && result && (
-                <FailureActions result={result} runLevel={runLevel} onRestart={restart} />
+                <FailureActions
+                  chosenPercentages={chosenPercentages}
+                  result={result}
+                  runLevel={runLevel}
+                  onRestart={restart}
+                />
               )}
             </div>
           </>
@@ -478,10 +494,12 @@ function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
 }
 
 function FailureActions({
+  chosenPercentages,
   runLevel,
   result,
   onRestart
 }: {
+  chosenPercentages: number[];
   runLevel: number;
   result: RevealedResult;
   onRestart: () => void;
@@ -492,7 +510,7 @@ function FailureActions({
     setSharing(true);
 
     try {
-      await shareFailureImage(result, runLevel);
+      await shareFailureImage(result, runLevel, chosenPercentages);
     } finally {
       setSharing(false);
     }
@@ -601,8 +619,8 @@ function RulesModal({
   );
 }
 
-async function shareFailureImage(result: RevealedResult, runLevel: number) {
-  const blob = await renderFailureImage(result, runLevel);
+async function shareFailureImage(result: RevealedResult, runLevel: number, chosenPercentages: number[]) {
+  const blob = await renderFailureImage(result, runLevel, chosenPercentages);
   const file = new File([blob], `plebscape-level-${runLevel}.png`, { type: "image/png" });
   const canShareFiles =
     typeof navigator !== "undefined" &&
@@ -628,7 +646,11 @@ async function shareFailureImage(result: RevealedResult, runLevel: number) {
   URL.revokeObjectURL(url);
 }
 
-async function renderFailureImage(result: RevealedResult, runLevel: number): Promise<Blob> {
+async function renderFailureImage(
+  result: RevealedResult,
+  runLevel: number,
+  chosenPercentages: number[]
+): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1080;
@@ -643,29 +665,32 @@ async function renderFailureImage(result: RevealedResult, runLevel: number): Pro
   context.fillStyle = "#0b0b0b";
   context.textAlign = "center";
   context.textBaseline = "middle";
+  const score = calculateRunScore({ chosenPercentages, failedLevel: runLevel });
 
   const ape = await loadImage(apeImageSrc);
-  context.drawImage(ape, 310, 80, 460, 460);
+  context.drawImage(ape, 330, 55, 420, 420);
 
-  drawText(context, `LEVEL ${runLevel}`, 540, 610, 82, "900");
+  drawText(context, `LEVEL ${runLevel}`, 540, 510, 78, "900");
+  drawText(context, `SCORE ${score.scoreDisplay}`, 540, 590, 62, "900");
+  drawText(context, `AVERAGE CHOICE: ${score.averageChoiceDisplay}`, 540, 650, 34, "700");
   drawShareButton(context, {
     noun: result.nounA,
     percent: displayPercent(result.percentA),
     pressed: result.chosenSide === "a",
     x: 85,
-    y: 700
+    y: 710
   });
   drawShareButton(context, {
     noun: result.nounB,
     percent: displayPercent(result.percentB),
     pressed: result.chosenSide === "b",
     x: 555,
-    y: 700
+    y: 710
   });
   context.fillStyle = "#0b0b0b";
-  drawText(context, "PLEBSCAPE.COM", 540, 960, 48, "900");
+  drawText(context, "PLEBSCAPE.COM", 540, 950, 48, "900");
   context.fillStyle = "#68645b";
-  drawText(context, slogan, 540, 1010, 30, "700");
+  drawText(context, slogan, 540, 1005, 30, "700");
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -689,7 +714,7 @@ function drawShareButton(
   }: { noun: string; percent: string; pressed: boolean; x: number; y: number }
 ) {
   const width = 440;
-  const height = 180;
+  const height = 160;
 
   context.fillStyle = pressed ? "#0b0b0b" : "#f4f1e8";
   context.fillRect(x, y, width, height);
@@ -697,8 +722,8 @@ function drawShareButton(
   context.strokeStyle = "#0b0b0b";
   context.strokeRect(x, y, width, height);
   context.fillStyle = pressed ? "#f4f1e8" : "#0b0b0b";
-  drawText(context, noun, x + width / 2, y + 72, 54, "900");
-  drawText(context, percent, x + width / 2, y + 130, 40, "700");
+  drawFittedText(context, percent, x + width / 2, y + 45, 70, "900", width - 36);
+  drawFittedText(context, noun, x + width / 2, y + 105, 54, "900", width - 36);
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -719,5 +744,29 @@ function drawText(
   weight: string
 ) {
   context.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
+  context.fillText(text, x, y);
+}
+
+function drawFittedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  weight: string,
+  maxWidth: number
+) {
+  let fittedSize = size;
+
+  while (fittedSize > 12) {
+    context.font = `${weight} ${fittedSize}px Arial, Helvetica, sans-serif`;
+
+    if (context.measureText(text).width <= maxWidth) {
+      break;
+    }
+
+    fittedSize -= 2;
+  }
+
   context.fillText(text, x, y);
 }

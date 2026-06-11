@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateVoteOutcome } from "./game";
+import { calculateRunScore, calculateVoteOutcome, getChosenPercentage } from "./game";
 
 describe("calculateVoteOutcome", () => {
   it("fails a new level because the chosen noun becomes 100%", () => {
@@ -69,5 +69,84 @@ describe("calculateVoteOutcome", () => {
 
     expect(result.passed).toBe(false);
     expect(result.votesA).toBe(11);
+  });
+});
+
+describe("getChosenPercentage", () => {
+  it("returns the exact final percentage for the chosen side", () => {
+    expect(
+      getChosenPercentage({
+        chosenNoun: "ladder",
+        chosenSide: "a",
+        levelId: "level-a",
+        nounA: "ladder",
+        nounB: "fog",
+        passed: false,
+        percentA: 65.25,
+        percentB: 34.75,
+        votesA: 15,
+        votesB: 8
+      })
+    ).toBe(65.25);
+
+    expect(
+      getChosenPercentage({
+        chosenNoun: "fog",
+        chosenSide: "b",
+        levelId: "level-b",
+        nounA: "ladder",
+        nounB: "fog",
+        passed: true,
+        percentA: 78.4,
+        percentB: 21.6,
+        votesA: 40,
+        votesB: 11
+      })
+    ).toBe(21.6);
+  });
+});
+
+describe("calculateRunScore", () => {
+  it("calculates the documented example with exact internals and rounded display values", () => {
+    const score = calculateRunScore({
+      failedLevel: 3,
+      chosenPercentages: [21, 32, 65]
+    });
+
+    expect(score.averageChosenPercentage).toBeCloseTo(39.3333333333);
+    expect(score.scoreExact).toBeCloseTo(260.6666666667);
+    expect(score.scoreDisplay).toBe(261);
+    expect(score.averageChoiceDisplay).toBe("39%");
+  });
+
+  it("scores a level one failure", () => {
+    const score = calculateRunScore({
+      failedLevel: 1,
+      chosenPercentages: [100]
+    });
+
+    expect(score.averageChosenPercentage).toBe(100);
+    expect(score.scoreExact).toBe(0);
+    expect(score.scoreDisplay).toBe(0);
+    expect(score.averageChoiceDisplay).toBe("100%");
+  });
+
+  it("preserves level priority over any realistic minority bonus", () => {
+    const lowerLevelBestRealisticRun = calculateRunScore({
+      failedLevel: 3,
+      chosenPercentages: [0.0001, 0.0001, 0.0001]
+    });
+    const higherLevelWorstRun = calculateRunScore({
+      failedLevel: 4,
+      chosenPercentages: [100, 100, 100, 100]
+    });
+
+    expect(higherLevelWorstRun.scoreExact).toBeGreaterThan(lowerLevelBestRealisticRun.scoreExact);
+  });
+
+  it("rejects empty runs", () => {
+    expect(() => calculateRunScore({ failedLevel: 1, chosenPercentages: [] })).toThrow(
+      "Cannot calculate a run score without answered levels."
+    );
   });
 });

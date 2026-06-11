@@ -19,6 +19,13 @@ export type RevealedResult = {
   passed: boolean;
 };
 
+export type RunScore = {
+  averageChoiceDisplay: string;
+  averageChosenPercentage: number;
+  scoreDisplay: number;
+  scoreExact: number;
+};
+
 export function calculateVoteOutcome(input: {
   votesA: number;
   votesB: number;
@@ -44,6 +51,33 @@ export function calculateVoteOutcome(input: {
     chosenSide: input.chosenSide,
     chosenNoun: input.chosenSide === "a" ? input.nounA : input.nounB,
     passed: chosenVotes < otherVotes
+  };
+}
+
+export function getChosenPercentage(result: RevealedResult): number {
+  return result.chosenSide === "a" ? result.percentA : result.percentB;
+}
+
+export function calculateRunScore({
+  failedLevel,
+  chosenPercentages
+}: {
+  failedLevel: number;
+  chosenPercentages: number[];
+}): RunScore {
+  if (chosenPercentages.length === 0) {
+    throw new Error("Cannot calculate a run score without answered levels.");
+  }
+
+  const averageChosenPercentage =
+    chosenPercentages.reduce((total, percentage) => total + percentage, 0) / chosenPercentages.length;
+  const scoreExact = (failedLevel - 1) * 100 + (100 - averageChosenPercentage);
+
+  return {
+    averageChoiceDisplay: `${Math.round(averageChosenPercentage)}%`,
+    averageChosenPercentage,
+    scoreDisplay: Math.round(scoreExact),
+    scoreExact
   };
 }
 
