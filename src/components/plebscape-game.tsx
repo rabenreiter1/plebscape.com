@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { displayPercent, type LevelPublic, type RevealedResult, type Side } from "@/lib/game";
 
@@ -15,6 +15,15 @@ const apeImageSrc = "/ape-game.png";
 const revealDelayMs = 2000;
 const fittedTextMinPx = 24;
 const fittedTextMaxPx = 112;
+const nounLineHeight = 0.92;
+
+type ChoiceTypography = {
+  nounFontSize: number;
+  percentFontSize: number;
+  percentOffset: number;
+};
+
+const initialChoiceTypography = getChoiceTypography(fittedTextMinPx);
 
 export function PlebscapeGame() {
   const [state, setState] = useState<GameState>("loading");
@@ -264,7 +273,7 @@ function ChoiceGrid({
   result: RevealedResult | null;
 }) {
   const buttonRefs = useRef<Record<Side, HTMLButtonElement | null>>({ a: null, b: null });
-  const [sharedFontSize, setSharedFontSize] = useState(fittedTextMinPx);
+  const [typography, setTypography] = useState<ChoiceTypography>(initialChoiceTypography);
 
   useEffect(() => {
     const canvas = document.createElement("canvas");
@@ -286,7 +295,7 @@ function ChoiceGrid({
           .filter((size): size is number => size !== null);
 
         if (sizes.length === choices.length) {
-          setSharedFontSize(Math.floor(Math.min(...sizes)));
+          setTypography(getChoiceTypography(Math.floor(Math.min(...sizes))));
         }
       });
     };
@@ -308,8 +317,14 @@ function ChoiceGrid({
     };
   }, [choices]);
 
+  const typographyStyle = {
+    "--noun-font-size": `${typography.nounFontSize}px`,
+    "--percent-font-size": `${typography.percentFontSize}px`,
+    "--percent-offset": `${typography.percentOffset}px`
+  } as CSSProperties;
+
   return (
-    <div className="choice-grid" aria-label="Choose one noun">
+    <div className="choice-grid" style={typographyStyle} aria-label="Choose one noun">
       {choices.map((choice) => {
         const percent =
           result && choice.side === "a"
@@ -331,9 +346,7 @@ function ChoiceGrid({
             type="button"
             onClick={() => void onChoose(choice.side)}
           >
-            <span className="noun-word" style={{ fontSize: sharedFontSize }}>
-              {choice.noun}
-            </span>
+            <span className="noun-word">{choice.noun}</span>
             {percent !== null && <span className="noun-percent">{displayPercent(percent)}</span>}
           </button>
         );
@@ -351,18 +364,24 @@ function getFittedNounSize(
   const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
   const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
   const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
-  const availableHeight = Math.max(1, (button.clientHeight - verticalPadding) * 0.46);
+  const availableHalfHeight = Math.max(1, (button.clientHeight - verticalPadding) / 2);
 
   let low = fittedTextMinPx;
   let high = fittedTextMaxPx;
 
   while (high - low > 0.5) {
     const next = (low + high) / 2;
+    const nextTypography = getChoiceTypography(next);
     context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
     const measuredWidth = context.measureText(text).width;
-    const measuredHeight = next * 0.92;
+    const nounHalfHeight = (next * nounLineHeight) / 2;
+    const revealedLowerHeight = nextTypography.percentOffset + nextTypography.percentFontSize;
 
-    if (measuredWidth <= availableWidth && measuredHeight <= availableHeight) {
+    if (
+      measuredWidth <= availableWidth &&
+      nounHalfHeight <= availableHalfHeight &&
+      revealedLowerHeight <= availableHalfHeight
+    ) {
       low = next;
     } else {
       high = next;
@@ -370,6 +389,17 @@ function getFittedNounSize(
   }
 
   return low;
+}
+
+function getChoiceTypography(nounFontSize: number): ChoiceTypography {
+  const percentGap = Math.min(14, Math.max(8.5, nounFontSize * 0.12));
+  const percentFontSize = Math.min(38, Math.max(16, nounFontSize * 0.34));
+
+  return {
+    nounFontSize,
+    percentFontSize,
+    percentOffset: nounFontSize * 0.46 + percentGap
+  };
 }
 
 function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {

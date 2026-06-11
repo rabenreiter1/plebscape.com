@@ -185,15 +185,16 @@ h1 {
   position: absolute;
   top: 50%;
   left: 50%;
+  font-size: var(--noun-font-size, 24px);
   line-height: 0.92;
   transform: translate(-50%, -50%);
 }
 
 .noun-percent {
   position: absolute;
-  top: calc(50% + clamp(1.25rem, 11cqi, 3.5rem));
+  top: calc(50% + var(--percent-offset, 2rem));
   left: 50%;
-  font-size: clamp(1rem, 5cqi, 2.35rem);
+  font-size: var(--percent-font-size, 1rem);
   line-height: 1;
   transform: translateX(-50%);
 }
@@ -341,11 +342,6 @@ h1 {
 
   .noun-button {
     padding: clamp(0.55rem, 1.5dvh, 0.8rem);
-  }
-
-  .noun-percent {
-    top: calc(50% + clamp(1.05rem, 10cqi, 2rem));
-    font-size: clamp(1rem, 7cqi, 1.75rem);
   }
 
   .failure-hero-mark {

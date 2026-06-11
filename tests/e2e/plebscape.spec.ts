@@ -69,6 +69,7 @@ async function expectPercentBelowNounInsideButton(page: Page, noun: string, perc
       return {
         buttonBottom: buttonBox.bottom,
         buttonTop: buttonBox.top,
+        gap: percentBox.top - nounBox.bottom,
         nounBottom: nounBox.bottom,
         percentBottom: percentBox.bottom,
         percentTop: percentBox.top
@@ -78,6 +79,7 @@ async function expectPercentBelowNounInsideButton(page: Page, noun: string, perc
   );
 
   expect(metrics.percentTop).toBeGreaterThan(metrics.nounBottom);
+  expect(metrics.gap).toBeGreaterThanOrEqual(8);
   expect(metrics.percentTop).toBeGreaterThanOrEqual(metrics.buttonTop);
   expect(metrics.percentBottom).toBeLessThanOrEqual(metrics.buttonBottom);
 }
@@ -294,6 +296,60 @@ test("fits long noun text from each button box on wide screens", async ({ page }
   await expectLockedFailureHero(page);
   await expectPercentBelowNounInsideButton(page, "handkerchief", "80%");
   await expectPercentBelowNounInsideButton(page, "tin", "20%");
+});
+
+test("keeps descenders clear of revealed percentages", async ({ page }) => {
+  await page.unroute("**/api/levels/next");
+  await page.unroute("**/api/votes");
+  await page.route("**/api/levels/next", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        level: {
+          id: "22222222-2222-4222-8222-222222222222",
+          nounA: "bagel",
+          nounB: "jigsaw"
+        },
+        generated: false
+      })
+    });
+  });
+  await page.route("**/api/votes", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          levelId: "22222222-2222-4222-8222-222222222222",
+          nounA: "bagel",
+          nounB: "jigsaw",
+          votesA: 59,
+          votesB: 41,
+          percentA: 59,
+          percentB: 41,
+          chosenSide: "a",
+          chosenNoun: "bagel",
+          passed: false
+        }
+      })
+    });
+  });
+
+  for (const size of [
+    { width: 320, height: 568 },
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 }
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto("/");
+    await page.getByRole("button", { name: "bagel" }).click();
+    await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+    await expectNounCentered(page, "bagel");
+    await expectNounCentered(page, "jigsaw");
+    await expectEqualNounFontSizes(page);
+    await expectPercentBelowNounInsideButton(page, "bagel", "59%");
+    await expectPercentBelowNounInsideButton(page, "jigsaw", "41%");
+    await expectNoPageOverflow(page);
+  }
 });
 
 test("keeps the failure hero as one scalable svg mark", async ({ page }) => {
