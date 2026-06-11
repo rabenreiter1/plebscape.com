@@ -66,17 +66,30 @@ async function expectPercentAboveNounCenteredInTopBand(page: Page, noun: string,
       const nounBox = nounElement.getBoundingClientRect();
       const percentBox = percentElement.getBoundingClientRect();
       const styles = window.getComputedStyle(button);
+      const percentStyles = window.getComputedStyle(percentElement);
       const innerTop = buttonBox.top + parseFloat(styles.borderTopWidth);
       const expectedPercentCenterY = innerTop + (nounBox.top - innerTop) / 2;
       const percentCenterY = percentBox.top + percentBox.height / 2;
+      const topBandHeight = nounBox.top - innerTop;
+      const expectedFillHeight = topBandHeight - 8;
+      const isWidthCapped = percentBox.height < expectedFillHeight - 2;
 
       return {
+        buttonLeft: buttonBox.left,
+        buttonRight: buttonBox.right,
         expectedPercentCenterY,
+        expectedFillHeight,
         innerTop,
+        isWidthCapped,
         nounTop: nounBox.top,
         percentBottom: percentBox.bottom,
         percentCenterY,
-        percentTop: percentBox.top
+        percentHeight: percentBox.height,
+        percentLeft: percentBox.left,
+        percentRight: percentBox.right,
+        percentTop: percentBox.top,
+        topBandHeight,
+        cssPercentFontSize: parseFloat(percentStyles.fontSize)
       };
     },
     percent
@@ -85,6 +98,13 @@ async function expectPercentAboveNounCenteredInTopBand(page: Page, noun: string,
   expect(metrics.percentBottom).toBeLessThanOrEqual(metrics.nounTop);
   expect(metrics.percentTop).toBeGreaterThanOrEqual(metrics.innerTop - 1);
   expect(Math.abs(metrics.percentCenterY - metrics.expectedPercentCenterY)).toBeLessThanOrEqual(2);
+  expect(metrics.percentLeft).toBeGreaterThanOrEqual(metrics.buttonLeft - 1);
+  expect(metrics.percentRight).toBeLessThanOrEqual(metrics.buttonRight + 1);
+  expect(metrics.cssPercentFontSize).toBeGreaterThanOrEqual(16);
+
+  if (!metrics.isWidthCapped) {
+    expect(Math.abs(metrics.percentHeight - metrics.expectedFillHeight)).toBeLessThanOrEqual(2);
+  }
 }
 
 async function expectEqualNounFontSizes(page: Page) {

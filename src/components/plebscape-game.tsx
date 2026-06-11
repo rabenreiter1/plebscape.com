@@ -15,18 +15,20 @@ const apeImageSrc = "/ape-game.png";
 const revealDelayMs = 2000;
 const fittedTextMinPx = 24;
 const fittedTextMaxPx = 112;
+const percentPaddingPx = 4;
+const minimumPercentFontSizePx = 16;
 const nounLineHeight = 0.92;
 
 type ChoiceTypography = {
   nounFontSize: number;
   percentCenterYBySide: Record<Side, number>;
-  percentFontSize: number;
+  percentFontSizeBySide: Record<Side, number>;
 };
 
 const initialChoiceTypography: ChoiceTypography = {
   nounFontSize: fittedTextMinPx,
   percentCenterYBySide: { a: 12, b: 12 },
-  percentFontSize: getPercentFontSize(fittedTextMinPx)
+  percentFontSizeBySide: { a: minimumPercentFontSizePx, b: minimumPercentFontSizePx }
 };
 
 export function PlebscapeGame() {
@@ -300,7 +302,6 @@ function ChoiceGrid({
 
         if (sizes.length === choices.length) {
           const nounFontSize = Math.floor(Math.min(...sizes));
-          const percentFontSize = getPercentFontSize(nounFontSize);
           const percentCenterYBySide = choices.reduce<Record<Side, number>>(
             (centers, choice) => {
               const button = buttonRefs.current[choice.side];
@@ -309,8 +310,18 @@ function ChoiceGrid({
             },
             { a: 12, b: 12 }
           );
+          const percentFontSizeBySide = choices.reduce<Record<Side, number>>(
+            (fontSizes, choice) => {
+              const button = buttonRefs.current[choice.side];
+              fontSizes[choice.side] = button
+                ? getPercentFontSize(context, nounFontSize, button)
+                : fontSizes[choice.side];
+              return fontSizes;
+            },
+            { a: minimumPercentFontSizePx, b: minimumPercentFontSizePx }
+          );
 
-          setTypography({ nounFontSize, percentCenterYBySide, percentFontSize });
+          setTypography({ nounFontSize, percentCenterYBySide, percentFontSizeBySide });
         }
       });
     };
@@ -333,8 +344,7 @@ function ChoiceGrid({
   }, [choices]);
 
   const typographyStyle = {
-    "--noun-font-size": `${typography.nounFontSize}px`,
-    "--percent-font-size": `${typography.percentFontSize}px`
+    "--noun-font-size": `${typography.nounFontSize}px`
   } as CSSProperties;
 
   return (
@@ -357,7 +367,12 @@ function ChoiceGrid({
             ref={(button) => {
               buttonRefs.current[choice.side] = button;
             }}
-            style={{ "--percent-center-y": `${typography.percentCenterYBySide[choice.side]}px` } as CSSProperties}
+            style={
+              {
+                "--percent-center-y": `${typography.percentCenterYBySide[choice.side]}px`,
+                "--percent-font-size": `${typography.percentFontSizeBySide[choice.side]}px`
+              } as CSSProperties
+            }
             type="button"
             onClick={() => void onChoose(choice.side)}
           >
@@ -390,12 +405,11 @@ function getFittedNounSize(
     const measuredWidth = context.measureText(text).width;
     const nounLineBoxHeight = next * nounLineHeight;
     const nounTopY = button.clientHeight / 2 - nounLineBoxHeight / 2;
-    const percentFontSize = getPercentFontSize(next);
 
     if (
       measuredWidth <= availableWidth &&
       nounLineBoxHeight <= availableHeight &&
-      percentFontSize <= nounTopY
+      nounTopY >= minimumPercentFontSizePx + percentPaddingPx * 2
     ) {
       low = next;
     } else {
@@ -413,8 +427,42 @@ function getPercentCenterY(nounFontSize: number, button: HTMLButtonElement) {
   return Math.max(0, nounTopY / 2);
 }
 
-function getPercentFontSize(nounFontSize: number) {
-  return Math.min(38, Math.max(16, nounFontSize * 0.34));
+function getPercentFontSize(
+  context: CanvasRenderingContext2D,
+  nounFontSize: number,
+  button: HTMLButtonElement
+) {
+  const styles = window.getComputedStyle(button);
+  const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+  const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
+  const nounLineBoxHeight = nounFontSize * nounLineHeight;
+  const nounTopY = button.clientHeight / 2 - nounLineBoxHeight / 2;
+  const verticalFillFontSize = Math.max(minimumPercentFontSizePx, nounTopY - percentPaddingPx * 2);
+  const widthFitFontSize = getFittedPercentSize(context, "100%", availableWidth);
+
+  return Math.max(minimumPercentFontSizePx, Math.min(verticalFillFontSize, widthFitFontSize));
+}
+
+function getFittedPercentSize(
+  context: CanvasRenderingContext2D,
+  text: string,
+  availableWidth: number
+) {
+  let low = minimumPercentFontSizePx;
+  let high = 220;
+
+  while (high - low > 0.5) {
+    const next = (low + high) / 2;
+    context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
+
+    if (context.measureText(text).width <= availableWidth) {
+      low = next;
+    } else {
+      high = next;
+    }
+  }
+
+  return low;
 }
 
 function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
