@@ -162,15 +162,7 @@ export function PlebscapeGame() {
           <>
             <div className="failure-slot">
               <div className="failure-banner" aria-hidden={state !== "failed"}>
-                {state === "failed" && (
-                  <>
-                    <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
-                    <h2>
-                      <span>YOU</span>
-                      <span>FAILED!</span>
-                    </h2>
-                  </>
-                )}
+                {state === "failed" && <FailureHero />}
               </div>
             </div>
 
@@ -194,11 +186,7 @@ export function PlebscapeGame() {
 
         {state === "failed" && !canShowBoard && (
           <div className="failure-banner">
-            <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
-            <h2>
-              <span>YOU</span>
-              <span>FAILED!</span>
-            </h2>
+            <FailureHero />
           </div>
         )}
 
@@ -221,6 +209,45 @@ export function PlebscapeGame() {
   );
 }
 
+function FailureHero() {
+  return (
+    <>
+      <h2 className="sr-only">YOU FAILED!</h2>
+      <svg
+        aria-hidden="true"
+        className="failure-hero-mark"
+        focusable="false"
+        role="img"
+        viewBox="0 0 720 180"
+      >
+        <image href={apeImageSrc} x="0" y="14" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
+        <text
+          x="182"
+          y="72"
+          fill="currentColor"
+          fontFamily="Arial, Helvetica, sans-serif"
+          fontSize="82"
+          fontWeight="900"
+          textAnchor="start"
+        >
+          YOU
+        </text>
+        <text
+          x="182"
+          y="150"
+          fill="currentColor"
+          fontFamily="Arial, Helvetica, sans-serif"
+          fontSize="82"
+          fontWeight="900"
+          textAnchor="start"
+        >
+          FAILED!
+        </text>
+      </svg>
+    </>
+  );
+}
+
 function ChoiceGrid({
   choices,
   chosenSide,
@@ -234,6 +261,51 @@ function ChoiceGrid({
   onChoose: (side: Side) => Promise<void>;
   result: RevealedResult | null;
 }) {
+  const buttonRefs = useRef<Record<Side, HTMLButtonElement | null>>({ a: null, b: null });
+  const [sharedFontSize, setSharedFontSize] = useState(fittedTextMinPx);
+
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    let animationFrame = 0;
+    const fit = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const sizes = choices
+          .map((choice) => {
+            const button = buttonRefs.current[choice.side];
+            return button ? getFittedNounSize(context, choice.noun, button) : null;
+          })
+          .filter((size): size is number => size !== null);
+
+        if (sizes.length === choices.length) {
+          setSharedFontSize(Math.floor(Math.min(...sizes)));
+        }
+      });
+    };
+
+    fit();
+
+    const observer = new ResizeObserver(fit);
+    choices.forEach((choice) => {
+      const button = buttonRefs.current[choice.side];
+
+      if (button) {
+        observer.observe(button);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
+  }, [choices]);
+
   return (
     <div className="choice-grid" aria-label="Choose one noun">
       {choices.map((choice) => {
@@ -251,10 +323,15 @@ function ChoiceGrid({
             className={`noun-button${isChosen ? " is-chosen" : ""}${percent !== null ? " has-result" : ""}`}
             disabled={disabled}
             key={choice.side}
+            ref={(button) => {
+              buttonRefs.current[choice.side] = button;
+            }}
             type="button"
             onClick={() => void onChoose(choice.side)}
           >
-            <FittedNounText text={choice.noun} />
+            <span className="noun-word" style={{ fontSize: sharedFontSize }}>
+              {choice.noun}
+            </span>
             {percent !== null && <span className="noun-percent">{displayPercent(percent)}</span>}
           </button>
         );
@@ -263,63 +340,34 @@ function ChoiceGrid({
   );
 }
 
-function FittedNounText({ text }: { text: string }) {
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [fontSize, setFontSize] = useState(fittedTextMinPx);
+function getFittedNounSize(
+  context: CanvasRenderingContext2D,
+  text: string,
+  button: HTMLButtonElement
+) {
+  const styles = window.getComputedStyle(button);
+  const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+  const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+  const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
+  const availableHeight = Math.max(1, (button.clientHeight - verticalPadding) * 0.46);
 
-  useEffect(() => {
-    const textElement = textRef.current;
-    const button = textElement?.closest<HTMLButtonElement>(".noun-button");
+  let low = fittedTextMinPx;
+  let high = fittedTextMaxPx;
 
-    if (!textElement || !button) {
-      return;
+  while (high - low > 0.5) {
+    const next = (low + high) / 2;
+    context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
+    const measuredWidth = context.measureText(text).width;
+    const measuredHeight = next * 0.92;
+
+    if (measuredWidth <= availableWidth && measuredHeight <= availableHeight) {
+      low = next;
+    } else {
+      high = next;
     }
+  }
 
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      return;
-    }
-
-    const fit = () => {
-      const styles = window.getComputedStyle(button);
-      const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-      const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
-      const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
-      const availableHeight = Math.max(1, (button.clientHeight - verticalPadding) * 0.46);
-
-      let low = fittedTextMinPx;
-      let high = fittedTextMaxPx;
-
-      while (high - low > 0.5) {
-        const next = (low + high) / 2;
-        context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
-        const measuredWidth = context.measureText(text).width;
-        const measuredHeight = next * 0.92;
-
-        if (measuredWidth <= availableWidth && measuredHeight <= availableHeight) {
-          low = next;
-        } else {
-          high = next;
-        }
-      }
-
-      setFontSize(Math.floor(low));
-    };
-
-    fit();
-
-    const observer = new ResizeObserver(fit);
-    observer.observe(button);
-    return () => observer.disconnect();
-  }, [text]);
-
-  return (
-    <span ref={textRef} className="noun-word" style={{ fontSize }}>
-      {text}
-    </span>
-  );
+  return low;
 }
 
 function ExhaustedPanel({ onRestart }: { onRestart: () => void }) {
