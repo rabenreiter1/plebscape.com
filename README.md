@@ -66,18 +66,21 @@ Configure these production environment variables in Hostinger:
 DATABASE_URL=...
 ```
 
-No OpenAI key or paid LLM provider is required. New levels are created from the
-checked-in 10,000 noun bank.
+No OpenAI key or paid LLM provider is required. New levels are created from a
+checked-in 2,000-word real noun bank.
 
-Create/update the production tables once with the production `DATABASE_URL`, then
-reserve nouns from any existing production levels. The app also performs the
-`used_nouns` creation/backfill idempotently at runtime, so this command is a
-manual safety check rather than an SSH-only deployment blocker:
+Create/update the production tables once with the production `DATABASE_URL`. The
+app also performs the `used_nouns` creation/backfill idempotently at runtime, so
+this command is a manual safety check rather than an SSH-only deployment blocker:
 
 ```powershell
 npm.cmd run db:push
 npm.cmd run db:backfill-nouns
 ```
+
+The `real-nouns-2000-v1` world version resets existing `levels`, `votes`, and
+`used_nouns` once so earlier synthetic compound levels are removed from
+production.
 
 After deployment, verify the server routes:
 

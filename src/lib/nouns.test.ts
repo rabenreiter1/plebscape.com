@@ -35,7 +35,8 @@ describe("validateNounPair", () => {
 });
 
 describe("nounBank", () => {
-  it("contains exactly 10,000 valid unique nouns", () => {
+  it("contains exactly 2,000 valid unique nouns", () => {
+    expect(nounBankSize).toBe(2000);
     expect(nounBank).toHaveLength(nounBankSize);
     expect(new Set(nounBank).size).toBe(nounBankSize);
     expect(validateNounBank()).toEqual({ ok: true });
@@ -45,6 +46,19 @@ describe("nounBank", () => {
     expect(nounBank).not.toContain("freedom");
     expect(nounBank).not.toContain("truth");
     expect(nounBank).not.toContain("war");
+  });
+
+  it("does not include synthetic or unsafe noun-bank leftovers", () => {
+    expect(nounBank).not.toContain("branchcomb");
+    expect(nounBank).not.toContain("flowercap");
+    expect(nounBank).not.toContain("grainbench");
+    expect(nounBank).not.toContain("clouddrum");
+    expect(nounBank).not.toContain("blackjack");
+    expect(nounBank).not.toContain("cassock");
+    expect(nounBank).not.toContain("flintstone");
+    expect(nounBank).not.toContain("machete");
+    expect(nounBank).not.toContain("cudgel");
+    expect(nounBank).not.toContain("flintlock");
   });
 });
 
