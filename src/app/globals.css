@@ -132,13 +132,11 @@ h1 {
   width: 100%;
   height: 100%;
   min-height: 0;
-  container-type: inline-size;
 }
 
 .noun-button {
-  display: grid;
-  align-content: center;
-  justify-items: center;
+  position: relative;
+  display: block;
   gap: clamp(0.3rem, 1.2dvh, 0.75rem);
   min-width: 0;
   min-height: 0;
@@ -147,10 +145,10 @@ h1 {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-size: clamp(2rem, 11cqi, 5.6rem);
   font-weight: 900;
-  overflow-wrap: anywhere;
+  overflow: hidden;
   padding: clamp(0.65rem, 2dvh, 1.1rem);
+  container-type: inline-size;
   transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
@@ -179,12 +177,25 @@ h1 {
 .noun-word,
 .noun-percent {
   display: block;
-  overflow-wrap: anywhere;
+  max-width: calc(100% - clamp(1.3rem, 4dvh, 2.2rem));
+  white-space: nowrap;
+}
+
+.noun-word {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  line-height: 0.92;
+  transform: translate(-50%, -50%);
 }
 
 .noun-percent {
-  font-size: clamp(1.15rem, 5cqi, 2.7rem);
+  position: absolute;
+  top: calc(50% + clamp(1.25rem, 11cqi, 3.5rem));
+  left: 50%;
+  font-size: clamp(1rem, 5cqi, 2.35rem);
   line-height: 1;
+  transform: translateX(-50%);
 }
 
 .status-text {
@@ -216,7 +227,8 @@ h1 {
 }
 
 .failure-banner {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto;
   align-items: center;
   justify-content: center;
   gap: clamp(0.45rem, 2cqi, 1rem);
@@ -227,15 +239,22 @@ h1 {
 }
 
 .failure-ape {
-  width: clamp(3.5rem, 8cqi, 7.5rem);
-  height: clamp(3.5rem, 8cqi, 7.5rem);
+  width: clamp(3.4rem, 7cqi, 6.5rem);
+  height: clamp(3.4rem, 7cqi, 6.5rem);
   object-fit: contain;
 }
 
 .failure-banner h2 {
-  font-size: clamp(1.9rem, 8cqi, 5.3rem);
+  display: grid;
+  justify-items: start;
+  font-size: clamp(1.9rem, 5cqi, 4rem);
   font-weight: 900;
-  line-height: 0.95;
+  line-height: 0.82;
+  text-align: left;
+}
+
+.failure-banner h2 span {
+  display: block;
 }
 
 .action-row {
@@ -326,20 +345,21 @@ h1 {
   }
 
   .noun-button {
-    font-size: clamp(2rem, 15cqi, 4.4rem);
+    padding: clamp(0.55rem, 1.5dvh, 0.8rem);
   }
 
   .noun-percent {
-    font-size: clamp(1.1rem, 8cqi, 2.15rem);
+    top: calc(50% + clamp(1.05rem, 10cqi, 2rem));
+    font-size: clamp(1rem, 7cqi, 1.75rem);
   }
 
   .failure-ape {
-    width: clamp(3rem, 16cqi, 4.7rem);
-    height: clamp(3rem, 16cqi, 4.7rem);
+    width: clamp(3rem, 15cqi, 4.3rem);
+    height: clamp(3rem, 15cqi, 4.3rem);
   }
 
   .failure-banner h2 {
-    font-size: clamp(1.7rem, 13cqi, 3.2rem);
+    font-size: clamp(1.7rem, 11.5cqi, 2.85rem);
   }
 
   .text-button {

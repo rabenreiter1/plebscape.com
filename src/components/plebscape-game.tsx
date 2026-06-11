@@ -13,6 +13,8 @@ type DisplayChoice = {
 const slogan = "There is only one way to escape the pleb.";
 const apeImageSrc = "/ape-game.png";
 const revealDelayMs = 2000;
+const fittedTextMinPx = 24;
+const fittedTextMaxPx = 112;
 
 export function PlebscapeGame() {
   const [state, setState] = useState<GameState>("loading");
@@ -163,7 +165,10 @@ export function PlebscapeGame() {
                 {state === "failed" && (
                   <>
                     <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
-                    <h2>YOU FAILED!</h2>
+                    <h2>
+                      <span>YOU</span>
+                      <span>FAILED!</span>
+                    </h2>
                   </>
                 )}
               </div>
@@ -190,7 +195,10 @@ export function PlebscapeGame() {
         {state === "failed" && !canShowBoard && (
           <div className="failure-banner">
             <img className="failure-ape" src={apeImageSrc} alt="Ape mascot" />
-            <h2>YOU FAILED!</h2>
+            <h2>
+              <span>YOU</span>
+              <span>FAILED!</span>
+            </h2>
           </div>
         )}
 
@@ -246,12 +254,71 @@ function ChoiceGrid({
             type="button"
             onClick={() => void onChoose(choice.side)}
           >
-            <span className="noun-word">{choice.noun}</span>
+            <FittedNounText text={choice.noun} />
             {percent !== null && <span className="noun-percent">{displayPercent(percent)}</span>}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function FittedNounText({ text }: { text: string }) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [fontSize, setFontSize] = useState(fittedTextMinPx);
+
+  useEffect(() => {
+    const textElement = textRef.current;
+    const button = textElement?.closest<HTMLButtonElement>(".noun-button");
+
+    if (!textElement || !button) {
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    const fit = () => {
+      const styles = window.getComputedStyle(button);
+      const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+      const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+      const availableWidth = Math.max(1, button.clientWidth - horizontalPadding - 8);
+      const availableHeight = Math.max(1, (button.clientHeight - verticalPadding) * 0.46);
+
+      let low = fittedTextMinPx;
+      let high = fittedTextMaxPx;
+
+      while (high - low > 0.5) {
+        const next = (low + high) / 2;
+        context.font = `900 ${next}px Arial, Helvetica, sans-serif`;
+        const measuredWidth = context.measureText(text).width;
+        const measuredHeight = next * 0.92;
+
+        if (measuredWidth <= availableWidth && measuredHeight <= availableHeight) {
+          low = next;
+        } else {
+          high = next;
+        }
+      }
+
+      setFontSize(Math.floor(low));
+    };
+
+    fit();
+
+    const observer = new ResizeObserver(fit);
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <span ref={textRef} className="noun-word" style={{ fontSize }}>
+      {text}
+    </span>
   );
 }
 
