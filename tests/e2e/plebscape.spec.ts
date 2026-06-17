@@ -356,9 +356,47 @@ test("opens the pleb definition modal from the reserved prompt slot", async ({ p
   await plebButton.click();
   const dialog = page.getByRole("dialog", { name: "pleb" });
   await expect(dialog).toBeVisible();
-  await expect(page.getByText("/plɛb/ — PLEB")).toBeVisible();
-  await expect(page.getByText("An ordinary person who follows the crowd by default.")).toBeVisible();
-  await expect(page.getByText(/Short for plebeian/)).toBeVisible();
+  await expect(dialog.getByText("/plɛb/")).toBeVisible();
+  await expect(dialog.getByText("— PLEB", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("noun", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("listitem")).toHaveCount(2);
+  await expect(dialog.getByRole("listitem").first()).toHaveText(
+    "An ordinary person who follows the crowd by default."
+  );
+  await expect(dialog.getByRole("listitem").nth(1)).toHaveText(
+    "A person ruled by mass taste, mass behavior, or low-agency thinking."
+  );
+  await expect(dialog.getByText("Etymology:")).toBeVisible();
+  await expect(dialog.getByText("plebeian")).toBeVisible();
+  await expect(dialog.getByText("plēbs")).toBeVisible();
+  const typography = await dialog.evaluate((element) => {
+    const pronunciation = element.querySelector(".definition-pronunciation em");
+    const part = element.querySelector(".definition-part");
+    const list = element.querySelector(".definition-list");
+    const etymologyLabel = element.querySelector(".definition-etymology strong");
+
+    if (!pronunciation || !part || !list || !etymologyLabel) {
+      throw new Error("Definition typography is incomplete.");
+    }
+
+    const pronunciationStyles = window.getComputedStyle(pronunciation);
+    const partStyles = window.getComputedStyle(part);
+    const listStyles = window.getComputedStyle(list);
+    const etymologyLabelStyles = window.getComputedStyle(etymologyLabel);
+
+    return {
+      etymologyLabelWeight: Number(etymologyLabelStyles.fontWeight),
+      listStyleType: listStyles.listStyleType,
+      partStyle: partStyles.fontStyle,
+      partTextTransform: partStyles.textTransform,
+      pronunciationStyle: pronunciationStyles.fontStyle
+    };
+  });
+  expect(typography.pronunciationStyle).toBe("italic");
+  expect(typography.partStyle).toBe("italic");
+  expect(typography.partTextTransform).toBe("none");
+  expect(typography.listStyleType).toBe("decimal");
+  expect(typography.etymologyLabelWeight).toBeGreaterThanOrEqual(700);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Close pleb definition" })).toBeFocused();
   const modalOverflow = await dialog.evaluate((element) => ({

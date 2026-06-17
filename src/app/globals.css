@@ -357,25 +357,43 @@ h1 {
 
 .definition-entry {
   display: grid;
-  gap: clamp(0.35rem, 1.1dvh, 0.65rem);
+  gap: clamp(0.35rem, 1dvh, 0.6rem);
   text-align: left;
   font-size: clamp(0.82rem, 2.4cqi, 1rem);
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .definition-pronunciation {
+  font-weight: 700;
+}
+
+.definition-pronunciation em,
+.definition-entry em {
+  font-style: italic;
+}
+
+.definition-pronunciation strong,
+.definition-etymology strong {
   font-weight: 900;
 }
 
 .definition-part {
   color: var(--muted);
-  font-weight: 900;
-  text-transform: uppercase;
+  font-style: italic;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.definition-list {
+  display: grid;
+  gap: clamp(0.25rem, 0.8dvh, 0.45rem);
+  margin: clamp(0.3rem, 1dvh, 0.55rem) 0;
+  padding-left: 1.6rem;
 }
 
 .definition-etymology {
-  color: var(--muted);
+  color: var(--ink);
 }
 
 @media (max-width: 640px) {

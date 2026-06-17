@@ -714,13 +714,17 @@ function PlebModal({
       onClose={onClose}
     >
       <div className="definition-entry">
-        <p className="definition-pronunciation">/plɛb/ — PLEB</p>
+        <p className="definition-pronunciation">
+          <em>/plɛb/</em> <strong>— PLEB</strong>
+        </p>
         <p className="definition-part">noun</p>
-        <p>An ordinary person who follows the crowd by default.</p>
-        <p>A person ruled by mass taste, mass behavior, or low-agency thinking.</p>
+        <ol className="definition-list">
+          <li>An ordinary person who follows the crowd by default.</li>
+          <li>A person ruled by mass taste, mass behavior, or low-agency thinking.</li>
+        </ol>
         <p className="definition-etymology">
-          Etymology: Short for plebeian, from Latin plēbs, meaning “the common people” or “the
-          non-aristocratic class” in ancient Rome.
+          <strong>Etymology:</strong> Short for <em>plebeian</em>, from Latin <em>plēbs</em>,
+          meaning “the common people” or “the non-aristocratic class” in ancient Rome.
         </p>
       </div>
     </ModalShell>
