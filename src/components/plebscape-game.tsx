@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 
 import {
   calculateRunScore,
@@ -52,7 +52,9 @@ export function PlebscapeGame() {
   const [chosenSide, setChosenSide] = useState<Side | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [plebOpen, setPlebOpen] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
+  const plebButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadNextLevel = useCallback(
     async (nextSeenLevelIds = seenLevelIds) => {
@@ -196,9 +198,16 @@ export function PlebscapeGame() {
         {canShowBoard && (
           <>
             <div className="failure-slot">
-              <div className="failure-banner" aria-hidden={!terminalOutcome}>
-                {terminalOutcome && <OutcomeHero outcome={terminalOutcome} />}
-              </div>
+              {terminalOutcome ? (
+                <div className="failure-banner">
+                  <OutcomeHero outcome={terminalOutcome} />
+                </div>
+              ) : (
+                <PlebPrompt
+                  openerRef={plebButtonRef}
+                  onOpen={() => setPlebOpen(true)}
+                />
+              )}
             </div>
 
             <p className="level-label">Level {runLevel}</p>
@@ -246,7 +255,32 @@ export function PlebscapeGame() {
       </section>
 
       {rulesOpen && <RulesModal openerRef={infoButtonRef} onClose={() => setRulesOpen(false)} />}
+      {plebOpen && <PlebModal openerRef={plebButtonRef} onClose={() => setPlebOpen(false)} />}
     </main>
+  );
+}
+
+function PlebPrompt({
+  openerRef,
+  onOpen
+}: {
+  openerRef: RefObject<HTMLButtonElement | null>;
+  onOpen: () => void;
+}) {
+  return (
+    <p className="pleb-prompt">
+      Choose what the{" "}
+      <button
+        ref={openerRef}
+        className="pleb-link"
+        type="button"
+        aria-label="Open pleb definition"
+        onClick={onOpen}
+      >
+        pleb
+      </button>{" "}
+      didn’t.
+    </p>
   );
 }
 
@@ -546,11 +580,19 @@ function FailureActions({
   );
 }
 
-function RulesModal({
+function ModalShell({
+  children,
+  closeLabel,
   openerRef,
+  title,
+  titleId,
   onClose
 }: {
-  openerRef: React.RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
+  closeLabel: string;
+  openerRef: RefObject<HTMLButtonElement | null>;
+  title: string;
+  titleId: string;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -605,34 +647,83 @@ function RulesModal({
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <div
         ref={dialogRef}
-        aria-labelledby="rules-title"
+        aria-labelledby={titleId}
         aria-modal="true"
         className="rules-modal"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="rules-header">
-          <h2 id="rules-title">How it works</h2>
+          <h2 id={titleId}>{title}</h2>
           <button
             ref={closeButtonRef}
             className="close-button"
             type="button"
-            aria-label="Close game rules"
+            aria-label={closeLabel}
             onClick={close}
           >
             x
           </button>
         </div>
-        <ol className="rules-list">
-          <li>You are shown two buttons with one word each.</li>
-          <li>You choose one button.</li>
-          <li>Your vote is added to the global vote count for that level.</li>
-          <li>The game reveals the percentages.</li>
-          <li>You survive only if your chosen button has less than 50%.</li>
-          <li>If your chosen button has 50% or more, you fail.</li>
-        </ol>
+        {children}
       </div>
     </div>
+  );
+}
+
+function RulesModal({
+  openerRef,
+  onClose
+}: {
+  openerRef: RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell
+      closeLabel="Close game rules"
+      openerRef={openerRef}
+      title="How it works"
+      titleId="rules-title"
+      onClose={onClose}
+    >
+      <ol className="rules-list">
+        <li>You are shown two buttons with one word each.</li>
+        <li>You choose one button.</li>
+        <li>Your vote is added to the global vote count for that level.</li>
+        <li>The game reveals the percentages.</li>
+        <li>You survive only if your chosen button has less than 50%.</li>
+        <li>If your chosen button has 50% or more, you fail.</li>
+      </ol>
+    </ModalShell>
+  );
+}
+
+function PlebModal({
+  openerRef,
+  onClose
+}: {
+  openerRef: RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell
+      closeLabel="Close pleb definition"
+      openerRef={openerRef}
+      title="pleb"
+      titleId="pleb-title"
+      onClose={onClose}
+    >
+      <div className="definition-entry">
+        <p className="definition-pronunciation">/plɛb/ — PLEB</p>
+        <p className="definition-part">noun</p>
+        <p>An ordinary person who follows the crowd by default.</p>
+        <p>A person ruled by mass taste, mass behavior, or low-agency thinking.</p>
+        <p className="definition-etymology">
+          Etymology: Short for plebeian, from Latin plēbs, meaning “the common people” or “the
+          non-aristocratic class” in ancient Rome.
+        </p>
+      </div>
+    </ModalShell>
   );
 }
 

@@ -347,6 +347,34 @@ test("opens and closes the how it works modal by keyboard", async ({ page }) => 
   await expect(page.getByRole("button", { name: "Open game rules" })).toBeFocused();
 });
 
+test("opens the pleb definition modal from the reserved prompt slot", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/");
+  await expect(page.getByText("Choose what the")).toBeVisible();
+  const plebButton = page.getByRole("button", { name: "Open pleb definition" });
+  await expect(plebButton).toBeVisible();
+  await plebButton.click();
+  const dialog = page.getByRole("dialog", { name: "pleb" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByText("/plɛb/ — PLEB")).toBeVisible();
+  await expect(page.getByText("An ordinary person who follows the crowd by default.")).toBeVisible();
+  await expect(page.getByText(/Short for plebeian/)).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Close pleb definition" })).toBeFocused();
+  const modalOverflow = await dialog.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    clientWidth: element.clientWidth,
+    scrollHeight: element.scrollHeight,
+    scrollWidth: element.scrollWidth
+  }));
+  expect(modalOverflow.scrollHeight).toBeLessThanOrEqual(modalOverflow.clientHeight + 1);
+  expect(modalOverflow.scrollWidth).toBeLessThanOrEqual(modalOverflow.clientWidth + 1);
+  await expectNoPageOverflow(page);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(plebButton).toBeFocused();
+});
+
 test("keeps the old favicon asset", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/ape.png");
@@ -410,6 +438,7 @@ test("shows failure actions", async ({ page }) => {
   const beforeBox = await getButtonBox(page, "handkerchief");
   await page.getByRole("button", { name: "handkerchief" }).click();
   await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open pleb definition" })).toHaveCount(0);
   await expect(page.getByText(/SCORE \d+/)).toBeHidden();
   await expect(page.getByText(/AVERAGE CHOICE:/)).toBeHidden();
   await expect(page.locator(".failure-hero-mark")).toBeVisible();
@@ -542,6 +571,7 @@ test("escapes after answering level 100 with the escaped hero and share image", 
   await page.getByRole("button", { name: "beta" }).click();
   await expect(page.getByRole("heading", { name: "YOU ESCAPED!" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Open pleb definition" })).toHaveCount(0);
   await expect(page.getByText("Level 100")).toHaveCount(1);
   await expect(page.getByRole("button", { name: /beta 55%/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();

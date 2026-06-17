@@ -237,6 +237,30 @@ h1 {
   min-height: 0;
 }
 
+.pleb-prompt {
+  max-width: min(100%, 38rem);
+  color: var(--ink);
+  font-size: clamp(1.45rem, 5cqi, 3.25rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pleb-link {
+  display: inline;
+  border: 0;
+  border-bottom: 0.08em solid currentColor;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.pleb-link:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 4px;
+}
+
 .failure-hero-mark {
   display: block;
   width: clamp(15rem, 48vw, 29rem);
@@ -329,6 +353,29 @@ h1 {
 
 .rules-list li {
   line-height: 1.28;
+}
+
+.definition-entry {
+  display: grid;
+  gap: clamp(0.35rem, 1.1dvh, 0.65rem);
+  text-align: left;
+  font-size: clamp(0.82rem, 2.4cqi, 1rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.definition-pronunciation {
+  font-weight: 900;
+}
+
+.definition-part {
+  color: var(--muted);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.definition-etymology {
+  color: var(--muted);
 }
 
 @media (max-width: 640px) {
