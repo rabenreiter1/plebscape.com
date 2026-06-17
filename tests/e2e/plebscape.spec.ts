@@ -418,6 +418,104 @@ test("keeps the old favicon asset", async ({ page }) => {
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/ape.png");
 });
 
+test("serves seo metadata and homepage structured data", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveTitle("PLEBSCAPE.COM | Free Minority Vote Browser Game");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    /free browser word game.*global percentages.*below 50%/i
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    /https:\/\/plebscape\.com\/?$/
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    "PLEBSCAPE.COM | Free Minority Vote Browser Game"
+  );
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    "content",
+    /(?:https:\/\/plebscape\.com|http:\/\/localhost:3000)\/opengraph-image/
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary_large_image"
+  );
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
+
+  const jsonLd = await page.locator('script[type="application/ld+json"]').first().textContent();
+  expect(jsonLd).not.toBeNull();
+  const data = JSON.parse(jsonLd ?? "{}") as { "@graph"?: Array<{ "@type"?: string; name?: string }> };
+  expect(data["@graph"]?.map((entry) => entry["@type"])).toEqual(
+    expect.arrayContaining(["WebSite", "Organization", "WebApplication", "VideoGame"])
+  );
+  expect(data["@graph"]?.some((entry) => entry.name === "PLEBSCAPE.COM")).toBe(true);
+});
+
+test("serves crawl endpoints and social preview assets", async ({ request }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  const robotsText = await robots.text();
+  expect(robotsText).toContain("Allow: /");
+  expect(robotsText).toContain("Disallow: /api/");
+  expect(robotsText).toContain("Sitemap: https://plebscape.com/sitemap.xml");
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status()).toBe(200);
+  const sitemapText = await sitemap.text();
+  for (const path of ["/", "/how-it-works", "/about", "/press", "/privacy"]) {
+    expect(sitemapText).toContain(`https://plebscape.com${path === "/" ? "" : path}`);
+  }
+
+  const manifest = await request.get("/manifest.webmanifest");
+  expect(manifest.status()).toBe(200);
+  const manifestJson = (await manifest.json()) as { name?: string; start_url?: string; icons?: unknown[] };
+  expect(manifestJson.name).toBe("PLEBSCAPE.COM");
+  expect(manifestJson.start_url).toBe("/");
+  expect(manifestJson.icons?.length).toBeGreaterThan(0);
+
+  const openGraphImage = await request.get("/opengraph-image");
+  expect(openGraphImage.status()).toBe(200);
+  expect(openGraphImage.headers()["content-type"]).toContain("image/png");
+});
+
+test("serves crawlable informational pages", async ({ page }) => {
+  const pages = [
+    {
+      path: "/how-it-works",
+      heading: "How PLEBSCAPE Works",
+      expected: ["What is PLEBSCAPE?", "What happens at level 100?", "Where does the score appear?"]
+    },
+    {
+      path: "/about",
+      heading: "About PLEBSCAPE",
+      expected: ["What is PLEBSCAPE?", "What does pleb mean?", "Why crowd behavior?"]
+    },
+    {
+      path: "/press",
+      heading: "PLEBSCAPE Press Kit",
+      expected: ["Short description", "Brand lines", "Share image"]
+    },
+    {
+      path: "/privacy",
+      heading: "PLEBSCAPE Privacy",
+      expected: ["Anonymous play", "Votes", "Server logs"]
+    }
+  ];
+
+  for (const contentPage of pages) {
+    await page.goto(contentPage.path);
+    await expect(page.getByRole("heading", { name: contentPage.heading, level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Play PLEBSCAPE" }).last()).toHaveAttribute("href", "/");
+    for (const expectedText of contentPage.expected) {
+      await expect(page.getByText(expectedText, { exact: true })).toBeVisible();
+    }
+
+    const jsonLd = await page.locator('script[type="application/ld+json"]').first().textContent();
+    expect(() => JSON.parse(jsonLd ?? "{}")).not.toThrow();
+  }
+});
+
 test("plays, reveals a pass, and hides percentages before choosing", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("60%")).toBeHidden();
