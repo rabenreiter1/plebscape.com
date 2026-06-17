@@ -31,7 +31,6 @@ Create the database tables with:
 
 ```powershell
 npm.cmd run db:push
-npm.cmd run db:backfill-nouns
 ```
 
 ## How It Works
@@ -65,22 +64,19 @@ Configure these production environment variables in Hostinger:
 DATABASE_URL=...
 ```
 
-No OpenAI key or paid LLM provider is required. New levels are created from a
-checked-in pool of 100 authored word pairs. Existing voted levels are still
-selected randomly first; a fresh authored pair is created only when no eligible
-unseen voted level exists for the current run.
+No OpenAI key or paid LLM provider is required. The game uses a checked-in pool
+of 100 authored word pairs. The server ensures all authored levels exist, then
+selects the next unseen level from the globally least-answered group, randomized
+among ties. This keeps vote counts balanced across the full 100-level world.
 
-Create/update the production tables once with the production `DATABASE_URL`. The
-app also performs the `used_nouns` creation/backfill idempotently at runtime, so
-this command is a manual safety check rather than an SSH-only deployment blocker:
+Create/update the production tables once with the production `DATABASE_URL`:
 
 ```powershell
 npm.cmd run db:push
-npm.cmd run db:backfill-nouns
 ```
 
-The `fixed-pairs-100-v1` world version resets existing `levels`, `votes`, and
-`used_nouns` once so earlier random noun-bank levels are removed from
+The `balanced-pairs-100-v1` world version resets existing `levels`, `votes`,
+and `used_nouns` once so the balanced 100-level world starts from zero votes in
 production.
 
 After deployment, verify the server routes:

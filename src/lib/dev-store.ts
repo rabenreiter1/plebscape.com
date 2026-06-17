@@ -1,5 +1,5 @@
 import { calculateVoteOutcome, type LevelPublic, type RevealedResult, type Side } from "./game";
-import { selectUncreatedLevelPair } from "./level-pairs";
+import { getMissingLevelPairs, selectBalancedLevel } from "./level-pairs";
 
 type DevLevel = LevelPublic & {
   votesA: number;
@@ -28,31 +28,28 @@ export function getNextDevLevel(
   seenLevelIds: string[]
 ): { level: LevelPublic; generated: boolean } | { exhausted: true } {
   const existing = devLevels();
-  const eligible = existing.filter(
-    (level) => level.votesA + level.votesB > 0 && !seenLevelIds.includes(level.id)
-  );
+  ensureDevAuthoredLevels(existing);
+  const selected = selectBalancedLevel({ levels: existing, seenLevelIds });
 
-  if (eligible.length > 0) {
-    const level = eligible[Math.floor(Math.random() * eligible.length)];
-    return { level: publicLevel(level), generated: false };
-  }
-
-  const pair = selectUncreatedLevelPair({ existingPairs: existing });
-
-  if (!pair) {
+  if (!selected) {
     return { exhausted: true };
   }
 
-  const level: DevLevel = {
-    id: crypto.randomUUID(),
-    nounA: pair.nounA,
-    nounB: pair.nounB,
-    votesA: 0,
-    votesB: 0
-  };
+  return { level: publicLevel(selected), generated: false };
+}
 
-  existing.push(level);
-  return { level: publicLevel(level), generated: true };
+function ensureDevAuthoredLevels(existing: DevLevel[]) {
+  const missingPairs = getMissingLevelPairs(existing);
+
+  existing.push(
+    ...missingPairs.map((pair) => ({
+      id: crypto.randomUUID(),
+      nounA: pair.nounA,
+      nounB: pair.nounB,
+      votesA: 0,
+      votesB: 0
+    }))
+  );
 }
 
 export function recordDevVote(levelId: string, chosenSide: Side): RevealedResult | null {

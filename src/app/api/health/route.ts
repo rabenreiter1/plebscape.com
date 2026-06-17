@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { ensureUsedNounsSchema } from "@/db/ensure-schema";
 import { levels, usedNouns, votes } from "@/db/schema";
-import { validateLevelPairs } from "@/lib/level-pairs";
+import { levelPairCount, levelPairs, pairKey, validateLevelPairs } from "@/lib/level-pairs";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +26,10 @@ type DatabaseUrlInfo = {
 
 export async function GET() {
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-  const levelPairs = validateLevelPairs();
+  const levelPairsCheck = validateLevelPairs();
   const checks: Record<string, Check> = {
     databaseUrl: { ok: hasDatabaseUrl },
-    levelPairs
+    levelPairs: levelPairsCheck
   };
 
   if (!hasDatabaseUrl) {
@@ -37,7 +37,6 @@ export async function GET() {
     checks.levelsTable = { ok: false, message: "Database check skipped." };
     checks.votesTable = { ok: false, message: "Database check skipped." };
     checks.usedNounsTable = { ok: false, message: "Database check skipped." };
-    checks.usedNounsBackfill = { ok: false, message: "Database check skipped." };
   } else {
     try {
       const db = getDb();
@@ -46,6 +45,20 @@ export async function GET() {
 
       await db.select({ id: levels.id }).from(levels).limit(1);
       checks.levelsTable = { ok: true };
+      const existingLevels = await db.select({ nounA: levels.nounA, nounB: levels.nounB }).from(levels);
+      const authoredKeys = new Set(levelPairs.map(pairKey));
+      const existingAuthoredCount = new Set(
+        existingLevels
+          .map(pairKey)
+          .filter((key) => authoredKeys.has(key))
+      ).size;
+      checks.authoredLevels =
+        existingAuthoredCount === levelPairCount
+          ? { ok: true }
+          : {
+              ok: true,
+              message: `${existingAuthoredCount}/${levelPairCount} authored levels exist. Missing levels are inserted by /api/levels/next.`
+            };
 
       await db.select({ id: votes.id }).from(votes).limit(1);
       checks.votesTable = { ok: true };
@@ -54,25 +67,6 @@ export async function GET() {
 
       await db.select({ noun: usedNouns.noun }).from(usedNouns).limit(1);
       checks.usedNounsTable = { ok: true };
-
-      const missingRows = (await db.execute(sql`
-        select count(*)::int as count
-        from (
-          select noun_a as noun from levels
-          union
-          select noun_b as noun from levels
-        ) level_nouns
-        left join used_nouns on used_nouns.noun = level_nouns.noun
-        where used_nouns.noun is null
-      `)) as unknown as Array<{ count: number | string }>;
-      const missingCount = Number(missingRows[0]?.count ?? 0);
-      checks.usedNounsBackfill =
-        missingCount === 0
-          ? { ok: true }
-          : {
-              ok: false,
-              message: `${missingCount} existing level nouns are not reserved.`
-            };
     } catch (error) {
       logApiError("api/health", error);
       checks.database = checks.database ?? {
@@ -90,10 +84,6 @@ export async function GET() {
       checks.usedNounsTable = checks.usedNounsTable ?? {
         ok: false,
         message: "Used nouns table check failed."
-      };
-      checks.usedNounsBackfill = checks.usedNounsBackfill ?? {
-        ok: false,
-        message: "Used nouns backfill check failed."
       };
     }
   }

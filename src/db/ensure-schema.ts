@@ -5,7 +5,7 @@ type ExecutableDb = {
 };
 
 let schemaPromise: Promise<void> | null = null;
-const worldVersion = "fixed-pairs-100-v1";
+export const worldVersion = "balanced-pairs-100-v1";
 
 export function ensureUsedNounsSchema(db: ExecutableDb): Promise<void> {
   schemaPromise ??= createUsedNounsSchema(db);

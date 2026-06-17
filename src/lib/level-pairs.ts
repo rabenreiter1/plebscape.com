@@ -2,6 +2,11 @@ export type LevelPair = {
   nounA: string;
   nounB: string;
 };
+export type LevelVoteCandidate = LevelPair & {
+  id: string;
+  votesA: number;
+  votesB: number;
+};
 
 export const levelPairs = [
   { nounA: "old", nounB: "young" },
@@ -152,14 +157,46 @@ export function selectUncreatedLevelPair({
   pairs?: readonly LevelPair[];
   random?: () => number;
 }): LevelPair | null {
-  const existingKeys = new Set(existingPairs.map(pairKey));
-  const uncreated = pairs.filter((pair) => !existingKeys.has(pairKey(pair)));
+  const uncreated = getMissingLevelPairs(existingPairs, pairs);
 
   if (uncreated.length === 0) {
     return null;
   }
 
   return uncreated[Math.floor(random() * uncreated.length)];
+}
+
+export function getMissingLevelPairs(
+  existingPairs: readonly LevelPair[],
+  pairs: readonly LevelPair[] = levelPairs
+): LevelPair[] {
+  const existingKeys = new Set(existingPairs.map(pairKey));
+  return pairs.filter((pair) => !existingKeys.has(pairKey(pair)));
+}
+
+export function selectBalancedLevel({
+  levels,
+  seenLevelIds = [],
+  pairs = levelPairs,
+  random = Math.random
+}: {
+  levels: readonly LevelVoteCandidate[];
+  seenLevelIds?: readonly string[];
+  pairs?: readonly LevelPair[];
+  random?: () => number;
+}): LevelVoteCandidate | null {
+  const authoredKeys = new Set(pairs.map(pairKey));
+  const seenIds = new Set(seenLevelIds);
+  const candidates = levels.filter((level) => authoredKeys.has(pairKey(level)) && !seenIds.has(level.id));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const minimumVotes = Math.min(...candidates.map((level) => level.votesA + level.votesB));
+  const leastVoted = candidates.filter((level) => level.votesA + level.votesB === minimumVotes);
+
+  return leastVoted[Math.floor(random() * leastVoted.length)];
 }
 
 function isValidWord(value: string): boolean {

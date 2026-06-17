@@ -1,4 +1,4 @@
-import { and, gt, notInArray, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -6,7 +6,7 @@ import { getDb } from "@/db/client";
 import { ensureUsedNounsSchema } from "@/db/ensure-schema";
 import { levels } from "@/db/schema";
 import { getNextDevLevel, shouldUseDevStore } from "@/lib/dev-store";
-import { selectUncreatedLevelPair } from "@/lib/level-pairs";
+import { getMissingLevelPairs, selectBalancedLevel } from "@/lib/level-pairs";
 import { logApiError } from "@/lib/server-errors";
 
 export const dynamic = "force-dynamic";
@@ -31,66 +31,56 @@ export async function POST(request: Request) {
 
     const db = getDb();
     await ensureUsedNounsSchema(db);
-    const filters = [gt(sql`${levels.votesA} + ${levels.votesB}`, 0)];
+    await ensureAuthoredLevels();
 
-    if (seenLevelIds.length > 0) {
-      filters.push(notInArray(levels.id, seenLevelIds));
-    }
-
-    const [eligible] = await db
+    const allLevels = await db
       .select({
         id: levels.id,
         nounA: levels.nounA,
-        nounB: levels.nounB
+        nounB: levels.nounB,
+        votesA: levels.votesA,
+        votesB: levels.votesB
       })
-      .from(levels)
-      .where(and(...filters))
-      .orderBy(sql`random()`)
-      .limit(1);
+      .from(levels);
+    const selected = selectBalancedLevel({ levels: allLevels, seenLevelIds });
 
-    if (eligible) {
-      return NextResponse.json({ level: eligible, generated: false });
-    }
-
-    const created = await createFreshLevel();
-
-    if (!created) {
+    if (!selected) {
       return NextResponse.json({ exhausted: true });
     }
 
-    return NextResponse.json({ level: created, generated: true });
+    return NextResponse.json({
+      level: {
+        id: selected.id,
+        nounA: selected.nounA,
+        nounB: selected.nounB
+      },
+      generated: false
+    });
   } catch (error) {
     logApiError("api/levels/next", error);
     return NextResponse.json({ error: "Could not load the next level." }, { status: 500 });
   }
 }
 
-async function createFreshLevel() {
+async function ensureAuthoredLevels() {
   const db = getDb();
 
-  return db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     await tx.execute(sql`lock table ${levels} in exclusive mode`);
     const existingPairs = await tx.select({ nounA: levels.nounA, nounB: levels.nounB }).from(levels);
-    const pair = selectUncreatedLevelPair({ existingPairs });
+    const missingPairs = getMissingLevelPairs(existingPairs);
 
-    if (!pair) {
-      return null;
+    if (missingPairs.length === 0) {
+      return;
     }
 
-    const [created] = await tx
-      .insert(levels)
-      .values({
+    await tx.insert(levels).values(
+      missingPairs.map((pair) => ({
         nounA: pair.nounA,
         nounB: pair.nounB,
         votesA: 0,
         votesB: 0
-      })
-      .returning({
-        id: levels.id,
-        nounA: levels.nounA,
-        nounB: levels.nounB
-      });
-
-    return created;
+      }))
+    );
   });
 }
