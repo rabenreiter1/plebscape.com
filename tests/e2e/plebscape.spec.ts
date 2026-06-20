@@ -598,6 +598,65 @@ test("shows failure actions", async ({ page }) => {
   await expectNoPageOverflow(page);
 });
 
+test("uses the fixed highscore message for native sharing", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__plebscapeDownloadClicked = false;
+    window.__plebscapeSharePayload = null;
+
+    HTMLCanvasElement.prototype.toBlob = function (callback, type) {
+      callback(new Blob(["png"], { type: type ?? "image/png" }));
+    };
+
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true
+    });
+
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: ShareData) => {
+        window.__plebscapeSharePayload = {
+          fileCount: data.files?.length ?? 0,
+          files:
+            data.files?.map((file) => ({
+              name: file.name,
+              size: file.size,
+              type: file.type
+            })) ?? [],
+          text: data.text,
+          title: data.title
+        };
+      }
+    });
+
+    HTMLAnchorElement.prototype.click = function () {
+      window.__plebscapeDownloadClicked = true;
+    };
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "handkerchief" }).click();
+  await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  await page.getByRole("button", { name: "SHARE" }).click();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__plebscapeSharePayload?.text))
+    .toBe("Just got a new highscore in PLEBSCAPE 🐵 Can you beat me: plebscape.com");
+
+  const payload = await page.evaluate(() => window.__plebscapeSharePayload);
+  expect(payload).toMatchObject({
+    fileCount: 1,
+    text: "Just got a new highscore in PLEBSCAPE 🐵 Can you beat me: plebscape.com",
+    title: "PLEBSCAPE.COM"
+  });
+  expect(payload?.files[0]).toMatchObject({
+    name: "plebscape-level-1.png",
+    type: "image/png"
+  });
+  expect(payload?.files[0].size).toBeGreaterThan(0);
+  await expect.poll(async () => page.evaluate(() => window.__plebscapeDownloadClicked)).toBe(false);
+});
+
 test("escapes after answering level 100 with the escaped hero and share image", async ({ page }) => {
   await page.addInitScript(() => {
     const originalSetTimeout = window.setTimeout.bind(window);

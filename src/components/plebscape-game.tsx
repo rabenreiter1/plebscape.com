@@ -19,6 +19,7 @@ type DisplayChoice = {
 type TerminalOutcome = "failed" | "escaped";
 
 const slogan = "There is only one way to escape the pleb.";
+const shareMessage = "Just got a new highscore in PLEBSCAPE 🐵 Can you beat me: plebscape.com";
 const apeImageSrc = "/ape-game.png";
 const escapedApeImageSrc = "/ape-escaped.png";
 const finalLevel = 100;
@@ -739,7 +740,6 @@ async function shareFailureImage(
 ) {
   const blob = await renderFailureImage(result, runLevel, chosenPercentages, outcome);
   const file = new File([blob], `plebscape-level-${runLevel}.png`, { type: "image/png" });
-  const action = outcome === "escaped" ? "escaped" : "failed";
   const canShareFiles =
     typeof navigator !== "undefined" &&
     "canShare" in navigator &&
@@ -748,7 +748,7 @@ async function shareFailureImage(
   if (canShareFiles && "share" in navigator) {
     await navigator.share({
       title: "PLEBSCAPE.COM",
-      text: `I ${action} PLEBSCAPE at level ${runLevel}.`,
+      text: shareMessage,
       files: [file]
     });
     return;
