@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   pgTable,
@@ -57,5 +58,24 @@ export const usedNouns = pgTable(
   })
 );
 
+export const leaderboardEntries = pgTable(
+  "leaderboard_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    terminalLevel: integer("terminal_level").notNull(),
+    scoreExact: doublePrecision("score_exact").notNull(),
+    scoreDisplay: integer("score_display").notNull(),
+    averageChosenPercentage: doublePrecision("average_chosen_percentage").notNull(),
+    outcome: text("outcome").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    scoreIndex: index("leaderboard_entries_score_idx").on(table.scoreExact),
+    createdAtIndex: index("leaderboard_entries_created_at_idx").on(table.createdAt)
+  })
+);
+
 export type LevelRow = typeof levels.$inferSelect;
 export type VoteRow = typeof votes.$inferSelect;
+export type LeaderboardEntryRow = typeof leaderboardEntries.$inferSelect;

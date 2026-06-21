@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/db/client";
 import { ensureUsedNounsSchema } from "@/db/ensure-schema";
-import { levels, usedNouns, votes } from "@/db/schema";
+import { leaderboardEntries, levels, usedNouns, votes } from "@/db/schema";
 import { levelPairCount, levelPairs, pairKey, validateLevelPairs } from "@/lib/level-pairs";
 import { logApiError } from "@/lib/server-errors";
 
@@ -37,6 +37,7 @@ export async function GET() {
     checks.levelsTable = { ok: false, message: "Database check skipped." };
     checks.votesTable = { ok: false, message: "Database check skipped." };
     checks.usedNounsTable = { ok: false, message: "Database check skipped." };
+    checks.leaderboardTable = { ok: false, message: "Database check skipped." };
   } else {
     try {
       const db = getDb();
@@ -67,6 +68,9 @@ export async function GET() {
 
       await db.select({ noun: usedNouns.noun }).from(usedNouns).limit(1);
       checks.usedNounsTable = { ok: true };
+
+      await db.select({ id: leaderboardEntries.id }).from(leaderboardEntries).limit(1);
+      checks.leaderboardTable = { ok: true };
     } catch (error) {
       logApiError("api/health", error);
       checks.database = checks.database ?? {
@@ -84,6 +88,10 @@ export async function GET() {
       checks.usedNounsTable = checks.usedNounsTable ?? {
         ok: false,
         message: "Used nouns table check failed."
+      };
+      checks.leaderboardTable = checks.leaderboardTable ?? {
+        ok: false,
+        message: "Leaderboard table check failed."
       };
     }
   }

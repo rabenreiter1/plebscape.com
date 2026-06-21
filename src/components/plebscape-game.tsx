@@ -10,6 +10,13 @@ import {
   type RevealedResult,
   type Side
 } from "@/lib/game";
+import {
+  isValidLeaderboardName,
+  leaderboardMinimumLevel,
+  truncateLeaderboardName,
+  type LeaderboardEntry,
+  type LeaderboardSubmission
+} from "@/lib/leaderboard";
 
 type GameState = "loading" | "choosing" | "submitting" | "revealed" | "failed" | "escaped" | "exhausted" | "error";
 type DisplayChoice = {
@@ -52,8 +59,12 @@ export function PlebscapeGame() {
   const [chosenPercentages, setChosenPercentages] = useState<number[]>([]);
   const [chosenSide, setChosenSide] = useState<Side | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [leaderboardPromptDismissed, setLeaderboardPromptDismissed] = useState(false);
+  const [leaderboardSaved, setLeaderboardSaved] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [plebOpen, setPlebOpen] = useState(false);
+  const leaderboardButtonRef = useRef<HTMLButtonElement>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const plebButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -144,11 +155,13 @@ export function PlebscapeGame() {
 
       if (runLevel === finalLevel) {
         setState("escaped");
+        openLeaderboardForEligibleRun(runLevel);
         return;
       }
 
       if (!nextResult.passed) {
         setState("failed");
+        openLeaderboardForEligibleRun(runLevel);
         return;
       }
 
@@ -171,11 +184,35 @@ export function PlebscapeGame() {
     setRunLevel(1);
     setChosenSide(null);
     setChosenPercentages([]);
+    setLeaderboardOpen(false);
+    setLeaderboardPromptDismissed(false);
+    setLeaderboardSaved(false);
     void loadNextLevel([]);
   };
 
   const canShowBoard = choices.length > 0 && state !== "loading" && state !== "error" && state !== "exhausted";
   const terminalOutcome: TerminalOutcome | null = state === "failed" || state === "escaped" ? state : null;
+  const leaderboardSubmission =
+    terminalOutcome &&
+    runLevel >= leaderboardMinimumLevel &&
+    !leaderboardPromptDismissed &&
+    !leaderboardSaved
+      ? {
+          chosenPercentages,
+          name: "",
+          outcome: terminalOutcome,
+          terminalLevel: runLevel
+        }
+      : null;
+
+  function openLeaderboardForEligibleRun(terminalLevel: number) {
+    setLeaderboardPromptDismissed(false);
+    setLeaderboardSaved(false);
+
+    if (terminalLevel >= leaderboardMinimumLevel) {
+      setLeaderboardOpen(true);
+    }
+  }
 
   return (
     <main className="game-shell">
@@ -184,15 +221,26 @@ export function PlebscapeGame() {
           <h1>PLEBSCAPE.COM</h1>
           <p>{slogan}</p>
         </div>
-        <button
-          ref={infoButtonRef}
-          className="info-button"
-          type="button"
-          aria-label="Open game rules"
-          onClick={() => setRulesOpen(true)}
-        >
-          i
-        </button>
+        <div className="header-actions">
+          <button
+            ref={leaderboardButtonRef}
+            className="info-button"
+            type="button"
+            aria-label="Open Leaderboard"
+            onClick={() => setLeaderboardOpen(true)}
+          >
+            🏆
+          </button>
+          <button
+            ref={infoButtonRef}
+            className="info-button"
+            type="button"
+            aria-label="Open game rules"
+            onClick={() => setRulesOpen(true)}
+          >
+            i
+          </button>
+        </div>
       </header>
 
       <section className="game-stage" aria-live="polite">
@@ -255,6 +303,18 @@ export function PlebscapeGame() {
         )}
       </section>
 
+      {leaderboardOpen && (
+        <LeaderboardModal
+          openerRef={leaderboardButtonRef}
+          submission={leaderboardSubmission}
+          onClose={() => setLeaderboardOpen(false)}
+          onDismissSubmission={() => {
+            setLeaderboardPromptDismissed(true);
+            setLeaderboardOpen(false);
+          }}
+          onSaved={() => setLeaderboardSaved(true)}
+        />
+      )}
       {rulesOpen && <RulesModal openerRef={infoButtonRef} onClose={() => setRulesOpen(false)} />}
       {plebOpen && <PlebModal openerRef={plebButtonRef} onClose={() => setPlebOpen(false)} />}
     </main>
@@ -669,6 +729,177 @@ function ModalShell({
         {children}
       </div>
     </div>
+  );
+}
+
+function LeaderboardModal({
+  openerRef,
+  submission,
+  onClose,
+  onDismissSubmission,
+  onSaved
+}: {
+  openerRef: RefObject<HTMLButtonElement | null>;
+  submission: LeaderboardSubmission | null;
+  onClose: () => void;
+  onDismissSubmission: () => void;
+  onSaved: () => void;
+}) {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const canSave = Boolean(submission) && isValidLeaderboardName(name) && !saving;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLeaderboard = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/leaderboard");
+
+        if (!response.ok) {
+          throw new Error("Could not load the leaderboard.");
+        }
+
+        const data = (await response.json()) as { entries: LeaderboardEntry[] };
+
+        if (isMounted) {
+          setEntries(data.entries);
+        }
+      } catch (cause) {
+        if (isMounted) {
+          setError(cause instanceof Error ? cause.message : "Could not load the leaderboard.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadLeaderboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const save = async () => {
+    if (!submission || !canSave) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...submission, name })
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not save your score.");
+      }
+
+      const data = (await response.json()) as { entries: LeaderboardEntry[] };
+      setEntries(data.entries);
+      setName("");
+      setSavedMessage("Saved. Your score is now in the list.");
+      onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save your score.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      closeLabel="Close Leaderboard"
+      openerRef={openerRef}
+      title="Leaderboard"
+      titleId="leaderboard-title"
+      onClose={onClose}
+    >
+      <div className="leaderboard-panel">
+        {submission ? (
+          <div className="leaderboard-save-panel">
+            <p className="leaderboard-copy">
+              Congratulations! You made it into the top players. Type your name to save your highscore.
+            </p>
+            <div className="leaderboard-form">
+              <label className="leaderboard-label" htmlFor="leaderboard-name">
+                Name
+              </label>
+              <input
+                id="leaderboard-name"
+                className="leaderboard-input"
+                type="text"
+                value={name}
+                aria-describedby="leaderboard-name-hint"
+                onChange={(event) => {
+                  setName(truncateLeaderboardName(event.currentTarget.value));
+                }}
+              />
+              <p id="leaderboard-name-hint" className="leaderboard-hint">
+                1-10 characters. All characters allowed.
+              </p>
+              <div className="leaderboard-actions">
+                <button className="text-button" type="button" disabled={!canSave} onClick={() => void save()}>
+                  {saving ? "SAVING..." : "SAVE"}
+                </button>
+                <button className="text-button" type="button" onClick={onDismissSubmission}>
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="leaderboard-copy">{savedMessage ?? "Top players in PLEBSCAPE."}</p>
+        )}
+
+        {error && <p className="leaderboard-error">{error}</p>}
+
+        <div className="leaderboard-list" role="list" aria-label="Top 100 scores">
+          {loading ? (
+            <p className="leaderboard-empty">Loading...</p>
+          ) : entries.length > 0 ? (
+            entries.map((entry) => (
+              <div
+                className={`leaderboard-row${entry.rank <= 3 ? " is-podium" : ""}${
+                  entry.rank === 1 ? " is-first" : ""
+                }`}
+                key={entry.id}
+                role="listitem"
+              >
+                <span className="leaderboard-rank">
+                  {entry.rank === 1 && (
+                    <span aria-hidden="true" className="leaderboard-crown">
+                      ♛
+                    </span>
+                  )}
+                  #{entry.rank}
+                </span>
+                <span className="leaderboard-name" title={entry.name}>
+                  {entry.name}
+                </span>
+                <span className="leaderboard-score">SCORE {entry.scoreDisplay}</span>
+              </div>
+            ))
+          ) : (
+            <p className="leaderboard-empty">No scores saved yet.</p>
+          )}
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

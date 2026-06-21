@@ -26,6 +26,27 @@ async function createUsedNounsSchema(db: ExecutableDb) {
   `);
 
   await db.execute(sql`
+    create table if not exists leaderboard_entries (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      terminal_level integer not null,
+      score_exact double precision not null,
+      score_display integer not null,
+      average_chosen_percentage double precision not null,
+      outcome text not null,
+      created_at timestamp with time zone not null default now()
+    )
+  `);
+
+  await db.execute(sql`
+    create index if not exists leaderboard_entries_score_idx on leaderboard_entries(score_exact)
+  `);
+
+  await db.execute(sql`
+    create index if not exists leaderboard_entries_created_at_idx on leaderboard_entries(created_at)
+  `);
+
+  await db.execute(sql`
     create table if not exists app_settings (
       key text primary key,
       value text not null,

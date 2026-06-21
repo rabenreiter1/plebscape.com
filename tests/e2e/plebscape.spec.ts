@@ -285,6 +285,20 @@ async function getChoiceButtonVisualStates(page: Page) {
   );
 }
 
+function makeLeaderboardEntries(count = 100) {
+  return Array.from({ length: count }, (_, index) => ({
+    averageChosenPercentage: 30 + index / 100,
+    createdAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+    id: `leaderboard-${index + 1}`,
+    name: `PLAYER${index + 1}`,
+    outcome: index % 2 === 0 ? "failed" : "escaped",
+    rank: index + 1,
+    scoreDisplay: 1000 - index,
+    scoreExact: 1000 - index,
+    terminalLevel: 100 - Math.min(index, 99)
+  }));
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/levels/next", async (route) => {
     await route.fulfill({
@@ -595,7 +609,233 @@ test("shows failure actions", async ({ page }) => {
   await expectPercentAboveNounCenteredInTopBand(page, "handkerchief", "80%");
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Leaderboard" })).toHaveCount(0);
   await expectNoPageOverflow(page);
+});
+
+test("opens the scrollable Leaderboard from the trophy button", async ({ page }) => {
+  await page.route("**/api/leaderboard", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ entries: makeLeaderboardEntries() })
+    });
+  });
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Leaderboard" }).click();
+  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Top players in PLEBSCAPE.")).toBeVisible();
+  await expect(dialog.getByText("♛")).toBeVisible();
+  await expect(dialog.locator(".leaderboard-row").first()).toContainText("#1");
+  await expect(dialog.locator(".leaderboard-row").first()).toContainText("PLAYER1");
+  await expect(dialog.locator(".leaderboard-row").first()).toContainText("SCORE 1000");
+  await expect(dialog.locator(".leaderboard-row.is-podium")).toHaveCount(3);
+  await expect(dialog.locator(".leaderboard-row.is-first")).toHaveCount(1);
+  await expect(dialog.locator(".leaderboard-row")).toHaveCount(100);
+  const listOverflow = await dialog.locator(".leaderboard-list").evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight
+  }));
+  expect(listOverflow.scrollHeight).toBeGreaterThan(listOverflow.clientHeight);
+  await expectNoPageOverflow(page);
+});
+
+test("auto-opens Leaderboard at level 5 and saves a truncated name", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+      originalSetTimeout(handler, Math.min(timeout ?? 0, 1), ...args)) as typeof window.setTimeout;
+  });
+
+  await page.unroute("**/api/levels/next");
+  await page.unroute("**/api/votes");
+  let nextLevel = 1;
+  let postedBody: unknown = null;
+
+  await page.route("**/api/leaderboard", async (route) => {
+    if (route.request().method() === "POST") {
+      postedBody = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          entries: [
+            {
+              averageChosenPercentage: 32,
+              createdAt: "2026-06-21T12:00:00.000Z",
+              id: "saved-score",
+              name: "1234567890",
+              outcome: "failed",
+              rank: 1,
+              scoreDisplay: 468,
+              scoreExact: 468,
+              terminalLevel: 5
+            },
+            ...makeLeaderboardEntries(99).map((entry) => ({ ...entry, rank: entry.rank + 1 }))
+          ]
+        })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ entries: makeLeaderboardEntries() })
+    });
+  });
+
+  await page.route("**/api/levels/next", async (route) => {
+    const levelNumber = nextLevel;
+    nextLevel += 1;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated: false,
+        level: {
+          id: `55555555-5555-4555-8555-55555555555${levelNumber}`,
+          nounA: `alpha${levelNumber}`,
+          nounB: `beta${levelNumber}`
+        }
+      })
+    });
+  });
+
+  await page.route("**/api/votes", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as { chosenSide: "a" | "b"; levelId: string };
+    const isFinalVote = body.levelId.endsWith("5");
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          levelId: body.levelId,
+          nounA: isFinalVote ? "alpha5" : "alpha",
+          nounB: isFinalVote ? "beta5" : "beta",
+          votesA: isFinalVote ? 80 : 80,
+          votesB: isFinalVote ? 20 : 20,
+          percentA: isFinalVote ? 80 : 80,
+          percentB: isFinalVote ? 20 : 20,
+          chosenSide: body.chosenSide,
+          chosenNoun: body.chosenSide === "a" ? "alpha" : "beta",
+          passed: !isFinalVote
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+
+  for (let levelNumber = 1; levelNumber < 5; levelNumber += 1) {
+    await page.getByRole("button", { name: `beta${levelNumber}` }).click();
+    await expect(page.getByText(`Level ${levelNumber + 1}`)).toBeVisible({ timeout: 4000 });
+  }
+
+  await page.getByRole("button", { name: "alpha5" }).click();
+  await expect(page.getByRole("heading", { name: "YOU FAILED!" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText("Congratulations! You made it into the top players. Type your name to save your highscore.")
+  ).toBeVisible();
+  const nameInput = dialog.getByLabel("Name");
+  await expect(dialog.getByRole("button", { name: "SAVE" })).toBeDisabled();
+  await nameInput.fill("12345678901");
+  await expect(nameInput).toHaveValue("1234567890");
+  await expect(dialog.getByRole("button", { name: "SAVE" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "SAVE" }).click();
+  await expect(dialog.getByText("Saved. Your score is now in the list.")).toBeVisible();
+  await expect(dialog.getByText("1234567890")).toBeVisible();
+  await expect(dialog.getByText("SCORE 468")).toBeVisible();
+  expect(postedBody).toMatchObject({
+    name: "1234567890",
+    outcome: "failed",
+    terminalLevel: 5
+  });
+  expect((postedBody as { chosenPercentages?: number[] }).chosenPercentages).toHaveLength(5);
+});
+
+test("cancels a level 5 Leaderboard prompt without saving", async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+      originalSetTimeout(handler, Math.min(timeout ?? 0, 1), ...args)) as typeof window.setTimeout;
+  });
+
+  await page.unroute("**/api/levels/next");
+  await page.unroute("**/api/votes");
+  let nextLevel = 1;
+  let postCount = 0;
+
+  await page.route("**/api/leaderboard", async (route) => {
+    if (route.request().method() === "POST") {
+      postCount += 1;
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ entries: makeLeaderboardEntries(3) })
+    });
+  });
+
+  await page.route("**/api/levels/next", async (route) => {
+    const levelNumber = nextLevel;
+    nextLevel += 1;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated: false,
+        level: {
+          id: `66666666-6666-4666-8666-66666666666${levelNumber}`,
+          nounA: `left${levelNumber}`,
+          nounB: `right${levelNumber}`
+        }
+      })
+    });
+  });
+
+  await page.route("**/api/votes", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}") as { chosenSide: "a" | "b"; levelId: string };
+    const isFinalVote = body.levelId.endsWith("5");
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        result: {
+          levelId: body.levelId,
+          nounA: "left",
+          nounB: "right",
+          votesA: isFinalVote ? 80 : 80,
+          votesB: isFinalVote ? 20 : 20,
+          percentA: isFinalVote ? 80 : 80,
+          percentB: isFinalVote ? 20 : 20,
+          chosenSide: body.chosenSide,
+          chosenNoun: body.chosenSide === "a" ? "left" : "right",
+          passed: !isFinalVote
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+
+  for (let levelNumber = 1; levelNumber < 5; levelNumber += 1) {
+    await page.getByRole("button", { name: `right${levelNumber}` }).click();
+    await expect(page.getByText(`Level ${levelNumber + 1}`)).toBeVisible({ timeout: 4000 });
+  }
+
+  await page.getByRole("button", { name: "left5" }).click();
+  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "CANCEL" }).click();
+  await expect(dialog).toBeHidden();
+  expect(postCount).toBe(0);
+
+  await page.getByRole("button", { name: "Open Leaderboard" }).click();
+  await expect(page.getByRole("dialog", { name: "Leaderboard" })).toBeVisible();
+  await expect(page.getByText("Congratulations! You made it into the top players.")).toHaveCount(0);
 });
 
 test("uses the fixed highscore message for native sharing", async ({ page }) => {
@@ -772,6 +1012,9 @@ test("escapes after answering level 100 with the escaped hero and share image", 
   await expect(page.getByRole("button", { name: "SHARE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "START AGAIN" })).toBeVisible();
   await expectLockedOutcomeHero(page, ["YOU", "ESCAPED!"], "ape-escaped.png");
+  await expect(page.getByRole("dialog", { name: "Leaderboard" })).toBeVisible();
+  await page.getByRole("button", { name: "Close Leaderboard" }).click();
+  await expect(page.getByRole("dialog", { name: "Leaderboard" })).toBeHidden();
 
   await page.getByRole("button", { name: "SHARE" }).click();
   await expect

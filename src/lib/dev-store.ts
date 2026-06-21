@@ -1,4 +1,11 @@
 import { calculateVoteOutcome, type LevelPublic, type RevealedResult, type Side } from "./game";
+import {
+  createLeaderboardEntry,
+  rankLeaderboardEntries,
+  type LeaderboardEntry,
+  type LeaderboardEntryCandidate,
+  type LeaderboardSubmission
+} from "./leaderboard";
 import { getMissingLevelPairs, selectBalancedLevel } from "./level-pairs";
 
 type DevLevel = LevelPublic & {
@@ -7,6 +14,7 @@ type DevLevel = LevelPublic & {
 };
 
 const store = globalThis as typeof globalThis & {
+  plebscapeDevLeaderboard?: LeaderboardEntryCandidate[];
   plebscapeDevLevels?: DevLevel[];
   plebscapeDevIndex?: number;
 };
@@ -18,6 +26,11 @@ function devLevels() {
   }
 
   return store.plebscapeDevLevels;
+}
+
+function devLeaderboard() {
+  store.plebscapeDevLeaderboard ??= [];
+  return store.plebscapeDevLeaderboard;
 }
 
 export function shouldUseDevStore() {
@@ -71,6 +84,20 @@ export function recordDevVote(levelId: string, chosenSide: Side): RevealedResult
   level.votesA = outcome.votesA;
   level.votesB = outcome.votesB;
   return outcome;
+}
+
+export function getDevLeaderboard(): LeaderboardEntry[] {
+  return rankLeaderboardEntries(devLeaderboard());
+}
+
+export function saveDevLeaderboardEntry(submission: LeaderboardSubmission): LeaderboardEntry[] {
+  devLeaderboard().push({
+    ...createLeaderboardEntry(submission),
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString()
+  });
+
+  return getDevLeaderboard();
 }
 
 function publicLevel(level: DevLevel): LevelPublic {

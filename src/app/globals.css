@@ -34,7 +34,8 @@ button {
 }
 
 button:focus-visible,
-[href]:focus-visible {
+[href]:focus-visible,
+input:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 4px;
 }
@@ -56,6 +57,12 @@ button:focus-visible,
   gap: 16px;
   width: min(100%, 960px);
   margin: 0 auto;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .brand-lockup {
@@ -394,6 +401,119 @@ h1 {
 
 .definition-etymology {
   color: var(--ink);
+}
+
+.leaderboard-panel {
+  display: grid;
+  gap: clamp(0.55rem, 1.4dvh, 0.9rem);
+}
+
+.leaderboard-save-panel {
+  display: grid;
+  gap: clamp(0.55rem, 1.2dvh, 0.8rem);
+}
+
+.leaderboard-copy,
+.leaderboard-hint,
+.leaderboard-error,
+.leaderboard-empty {
+  margin: 0;
+  text-align: left;
+  font-size: clamp(0.8rem, 2.2cqi, 0.95rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.leaderboard-copy,
+.leaderboard-hint {
+  color: var(--muted);
+}
+
+.leaderboard-error {
+  color: var(--ink);
+}
+
+.leaderboard-form {
+  display: grid;
+  gap: clamp(0.4rem, 1dvh, 0.6rem);
+}
+
+.leaderboard-label {
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.leaderboard-input {
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 900;
+  padding: 8px 10px;
+}
+
+.leaderboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: clamp(8rem, 34dvh, 22rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-color: var(--ink) transparent;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: minmax(3.5rem, max-content) minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 0.65rem;
+  border: 2px solid var(--ink);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.leaderboard-row.is-podium {
+  background: rgb(11 11 11 / 8%);
+}
+
+.leaderboard-row.is-first {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.leaderboard-rank,
+.leaderboard-name,
+.leaderboard-score {
+  min-width: 0;
+  font-size: clamp(0.82rem, 2.2cqi, 1rem);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.leaderboard-crown {
+  margin-right: 0.25rem;
+}
+
+.leaderboard-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  text-align: right;
 }
 
 .content-shell {
